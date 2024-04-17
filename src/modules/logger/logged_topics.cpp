@@ -199,6 +199,7 @@ void LoggedTopics::add_default_topics()
 	add_topic("estimator_status_flags", 0);
 	add_topic("yaw_estimator_status", 50);
 
+	add_topic_multi("estimator_attitude", 50, MAX_ESTIMATOR_INSTANCES);
 	add_topic_multi("estimator_baro_bias", 50, MAX_ESTIMATOR_INSTANCES);
 	add_topic_multi("estimator_gnss_hgt_bias", 50, MAX_ESTIMATOR_INSTANCES);
 	add_topic_multi("estimator_rng_hgt_bias", 50, MAX_ESTIMATOR_INSTANCES);

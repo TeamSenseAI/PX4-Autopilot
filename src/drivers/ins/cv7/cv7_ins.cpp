@@ -151,7 +151,12 @@ void handle_filter_event_source(void *user, const mip_field *field, timestamp_ty
 	}
 }
 
-bool mip::C::mip_interface_user_recv_from_device(mip_interface *device, uint8_t *buffer, size_t max_length,
+timestamp_type get_current_timestamp()
+{
+	return hrt_absolute_time();
+}
+
+bool mip_interface_user_recv_from_device(mip_interface *device, uint8_t *buffer, size_t max_length, timeout_type wait_time,
 		size_t *out_length, timestamp_type *timestamp_out)
 {
 	(void)device;
@@ -187,7 +192,7 @@ bool mip::C::mip_interface_user_recv_from_device(mip_interface *device, uint8_t 
 	return true;
 }
 
-bool mip::C::mip_interface_user_send_to_device(mip_interface *device, const uint8_t *data, size_t length)
+bool mip_interface_user_send_to_device(mip_interface *device, const uint8_t *data, size_t length)
 {
 
 
@@ -303,7 +308,9 @@ int CvIns::connect_at_baud(int32_t baud)
 	PX4_INFO("Serial Port %s with baud of %" PRIu32 " baud", (device_uart.is_open() ? "CONNECTED" : "NOT CONNECTED"), baud);
 
 	// Re-init the interface with the correct timeouts
-	mip_interface_init(&device, parse_buffer, sizeof(parse_buffer), mip_timeout_from_baudrate(baud) * 1_ms, 250_ms);
+	// mip_interface_init(&device, parse_buffer, sizeof(parse_buffer), mip_timeout_from_baudrate(baud) * 1_ms, 250_ms);
+	mip_interface_init(&device, parse_buffer, sizeof(parse_buffer), mip_timeout_from_baudrate(baud) * 1_ms, 250_ms,
+			&mip_interface_user_send_to_device, &mip_interface_user_recv_from_device, &mip_interface_default_update, NULL);
 
 	PX4_INFO("mip_base_ping");
 
