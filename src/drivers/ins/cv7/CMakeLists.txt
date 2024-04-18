@@ -51,6 +51,8 @@ px4_add_module(
 		cv7_ins.hpp
 		modal_io_serial.cpp
 		modal_io_serial.hpp
+	MODULE_CONFIG
+		module.yaml
 	DEPENDS
 		px4_work_queue
 		mip

@@ -106,6 +106,8 @@ public:
 
 	uint32_t _debug_rx_bytes[4] {0};
 
+	bool add_delay = _param_cv7_delay.get();
+
 private:
 	/** @see ModuleBase */
 	void Run() override;
@@ -186,6 +188,9 @@ private:
 
 	// Parameters
 	DEFINE_PARAMETERS(
-		(ParamInt<px4::params::IMU_GYRO_RATEMAX>) _param_imu_gyro_ratemax
+		(ParamInt<px4::params::IMU_GYRO_RATEMAX>) _param_imu_gyro_ratemax,
+		(ParamInt<px4::params::CV7_SCHEDULE>) _param_cv7_schedule,
+		(ParamInt<px4::params::CV7_DELAY>) _param_cv7_delay,
+		(ParamInt<px4::params::CV7_UPDATE_RATE>) _param_cv7_update_rate
 	)
 };

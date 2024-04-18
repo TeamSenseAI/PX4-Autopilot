@@ -1,0 +1,27 @@
+module_name: CV7 INS
+parameters:
+    - group: Sensors
+      definitions:
+        CV7_SCHEDULE:
+            description:
+                short: rate to run the cv7 module
+                long: |
+                    rate to fun cv7 module
+            type: int32
+            default: 2000
+
+        CV7_DELAY:
+            description:
+                short: Add the 1.9ms delay
+                long: |
+                    boolean to add the reading delay
+            type: boolean
+            default: 0
+
+        CV7_UPDATE_RATE:
+            description:
+                short: Update rate for CV7
+                long: |
+                    Select the update rate at 250, 500, 1000
+            type: int32
+            default: 500

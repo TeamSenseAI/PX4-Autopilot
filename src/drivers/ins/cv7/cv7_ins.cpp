@@ -99,7 +99,9 @@ void CvIns::cb_ref_timestamp(void *user, const mip_field *field, timestamp_type 
 
 		// Convert to a useful time for PX4
 		// auto t = timestamp - 1900_us;				// Packets are then ~4ms old and timestamp duplications
-		auto t = hrt_absolute_time() - 1900_us;				// Packets are then ~2ms old
+		// auto t = hrt_absolute_time() - 1900_us;				// Packets are then ~2ms old
+		// auto t = hrt_absolute_time() - (_param_cv7_delay.get() ? 1900_us : 0_us);				// Packets are then ~2ms old
+		auto t = hrt_absolute_time() - (ref->add_delay ? 1900_us : 0_us);				// Packets are then ~2ms old
 		// auto t = hrt_absolute_time();				// Packets are old but system thinks they are new
 		// auto t = timestamp;						// Packets at time of arrival and timestamp duplications
 
@@ -223,7 +225,7 @@ CvIns::CvIns(const char *uart_port, int32_t rot) :
 	_config.rot = static_cast<Rotation>(rot);
 	// TODO: Figure out how to set to arbitrary rates, currently it limited based on decimation
 	// // Clamp rate to allowable ranges
-	// _config.sens_imu_update_rate_hz = math::constrain<uint16_t>(_param_imu_gyro_ratemax.get(),100,1000);
+	_config.sens_imu_update_rate_hz = math::constrain<uint16_t>(_param_cv7_update_rate.get(),100,1000);
 
 	device::Device::DeviceId device_id{};
 	device_id.devid_s.devtype = DRV_INS_DEVTYPE_3DMCV7;
@@ -259,7 +261,7 @@ CvIns::~CvIns()
 bool CvIns::init()
 {
 	// Run on fixed interval
-	ScheduleOnInterval(2000_us);
+	ScheduleOnInterval(_param_cv7_schedule.get());
 
 	return true;
 }
