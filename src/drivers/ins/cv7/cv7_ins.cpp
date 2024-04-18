@@ -101,7 +101,7 @@ void CvIns::cb_ref_timestamp(void *user, const mip_field *field, timestamp_type 
 		// auto t = timestamp - 1900_us;				// Packets are then ~4ms old and timestamp duplications
 		// auto t = hrt_absolute_time() - 1900_us;				// Packets are then ~2ms old
 		// auto t = hrt_absolute_time() - (_param_cv7_delay.get() ? 1900_us : 0_us);				// Packets are then ~2ms old
-		auto t = hrt_absolute_time() - (ref->add_delay ? 1900_us : 0_us);				// Packets are then ~2ms old
+		auto t = hrt_absolute_time() - (ref->add_delay() ? 1900_us : 0_us);				// Packets are then ~2ms old
 		// auto t = hrt_absolute_time();				// Packets are old but system thinks they are new
 		// auto t = timestamp;						// Packets at time of arrival and timestamp duplications
 

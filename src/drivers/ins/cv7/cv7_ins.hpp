@@ -106,7 +106,7 @@ public:
 
 	uint32_t _debug_rx_bytes[4] {0};
 
-	bool add_delay = _param_cv7_delay.get();
+	bool add_delay(){ return _param_cv7_delay.get() != 0;}
 
 private:
 	/** @see ModuleBase */
