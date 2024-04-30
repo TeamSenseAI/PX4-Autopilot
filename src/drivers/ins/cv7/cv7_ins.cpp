@@ -34,10 +34,15 @@
 #include <lib/drivers/device/Device.hpp>
 
 #include "cv7_ins.hpp"
+#include "mip_sdk/src/mip/mip_all.h"
 #include "mip_sdk/src/mip/mip_parser.h"
 #include "CircularBuffer.hpp"
 
 // #define LOG_TRANSACTIONS
+
+uint8_t external_heading_sensor_id = 1;
+uint8_t gnss_antenna_sensor_id = 2;
+uint8_t vehicle_frame_velocity_sensor_id = 3;
 
 static CvIns *cv7_ins{nullptr};
 
@@ -46,6 +51,216 @@ ModalIoSerial device_uart;
 
 const uint8_t FILTER_ROLL_EVENT_ACTION_ID  = 1;
 const uint8_t FILTER_PITCH_EVENT_ACTION_ID = 2;
+
+void CvIns::cb_filter_llh(void *user, const mip_field *field, timestamp_type timestamp)
+{
+	CvIns *ref = static_cast<CvIns *>(user);
+	mip_filter_position_llh_data data;
+	if (extract_mip_filter_position_llh_data_from_field(field,&data)){
+		PX4_INFO_RAW("1");
+		ref->_f_llh.update_sample(data);
+	}
+}
+
+void CvIns::cb_filter_atq(void *user, const mip_field *field, timestamp_type timestamp)
+{
+	CvIns *ref = static_cast<CvIns *>(user);
+	mip_filter_attitude_quaternion_data data;
+
+	if (extract_mip_filter_attitude_quaternion_data_from_field(field,&data)){
+		PX4_INFO_RAW("2");
+		ref->_f_quat.update_sample(data);
+	}
+}
+void CvIns::cb_filter_ang_rate(void *user, const mip_field *field, timestamp_type timestamp)
+{
+	CvIns *ref = static_cast<CvIns *>(user);
+	mip_filter_comp_angular_rate_data data;
+
+	if (extract_mip_filter_comp_angular_rate_data_from_field(field,&data)){
+		PX4_INFO_RAW("3");
+		// PX4_INFO("%f, %f, %f", (double)data.gyro[0], (double)data.gyro[1], (double)data.gyro[2]);
+		ref->_f_ang_rate.update_sample(data);
+	}
+}
+
+void CvIns::cb_filter_rel_pos(void *user, const mip_field *field, timestamp_type timestamp)
+{
+	CvIns *ref = static_cast<CvIns *>(user);
+	mip_filter_rel_pos_ned_data data;
+
+	if (extract_mip_filter_rel_pos_ned_data_from_field(field,&data)){
+		PX4_INFO_RAW("4");
+		ref->_f_rel_pos.update_sample(data);
+	}
+}
+void CvIns::cb_filter_vel_ned(void *user, const mip_field *field, timestamp_type timestamp)
+{
+	CvIns *ref = static_cast<CvIns *>(user);
+	mip_filter_velocity_ned_data data;
+
+	if (extract_mip_filter_velocity_ned_data_from_field(field,&data)){
+		PX4_INFO_RAW("5");
+		ref->_f_vel_ned.update_sample(data);
+	}
+}
+void CvIns::cb_filter_lin_accel(void *user, const mip_field *field, timestamp_type timestamp)
+{
+	CvIns *ref = static_cast<CvIns *>(user);
+	mip_filter_linear_accel_data data;
+
+	if (extract_mip_filter_linear_accel_data_from_field(field,&data)){
+		PX4_INFO_RAW("6");
+		ref->_f_lin_veld.update_sample(data);
+	}
+}
+void CvIns::cb_filter_status(void *user, const mip_field *field, timestamp_type timestamp)
+{
+	CvIns *ref = static_cast<CvIns *>(user);
+	mip_filter_status_data data;
+
+	if (extract_mip_filter_status_data_from_field(field,&data)){
+		PX4_INFO_RAW("7");
+		ref->_f_status.update_sample(data);
+	}
+}
+void CvIns::cb_filter_pos_uncertainty(void *user, const mip_field *field, timestamp_type timestamp)
+{
+	CvIns *ref = static_cast<CvIns *>(user);
+	mip_filter_position_llh_uncertainty_data data;
+
+	if (extract_mip_filter_position_llh_uncertainty_data_from_field(field,&data)){
+		PX4_INFO_RAW("8");
+		ref->_f_pos_uncertainty.update_sample(data);
+	}
+}
+
+void CvIns::cb_filter_timestamp(void *user, const mip_field *field, timestamp_type timestamp)
+{
+	CvIns *ref = static_cast<CvIns *>(user);
+	// mip_filter_timestamp_data data;
+
+	// if (extract_mip_filter_timestamp_data_from_field(field,&data))
+	{
+		// ref->_f_timestamp.update_sample(data);
+
+		auto t = hrt_absolute_time() - (ref->_delay_offset * 1_us);
+
+		if (ref->_f_llh.updated) {
+			vehicle_global_position_s gp{0};
+			gp.timestamp = t;
+			gp.timestamp_sample = t;
+			gp.lat = ref->_f_llh.sample.latitude;
+			gp.lon = ref->_f_llh.sample.longitude;
+			gp.alt_ellipsoid = ref->_f_llh.sample.ellipsoid_height;
+			gp.eph = 0.1f;
+			gp.epv = 0.1f;
+
+			ref->_f_llh.updated = false;
+			ref->_global_position_pub.publish(gp);
+		}
+
+		if (ref->_f_rel_pos.updated && ref->_f_vel_ned.updated) {
+			vehicle_local_position_s vp{0};
+			vp.timestamp = t;
+			vp.timestamp_sample = t;
+			vp.x = ref->_f_rel_pos.sample.relative_position[0];
+			vp.y = ref->_f_rel_pos.sample.relative_position[1];
+			vp.z = ref->_f_rel_pos.sample.relative_position[2];
+
+			vp.vx = ref->_f_vel_ned.sample.north;
+			vp.vy = ref->_f_vel_ned.sample.east;
+			vp.vz = ref->_f_vel_ned.sample.down;
+
+			vp.delta_xy[0] = 0.f;
+			vp.delta_xy[1] = 0.f;
+			vp.xy_reset_counter = 0;
+			vp.z = ref->_f_rel_pos.sample.relative_position[2];
+
+			vp.z_valid = true;
+			vp.xy_valid = true;
+			vp.v_xy_valid = true;
+			vp.v_z_valid = true;
+			vp.z_deriv = vp.vz;
+			vp.z_global = true;
+			vp.xy_global = true;
+			vp.heading_good_for_control = true;
+
+			vp.vxy_max = INFINITY;
+			vp.vz_max = INFINITY;
+			vp.hagl_min = INFINITY;
+			vp.hagl_max = INFINITY;
+
+			ref->_f_rel_pos.updated = false;
+			ref->_f_vel_ned.updated = false;
+			ref->_vehicle_local_position_pub.publish(vp);
+		}
+
+		if (ref->_f_quat.updated) {
+			vehicle_attitude_s att_data{0};
+			att_data.timestamp = t;
+			att_data.timestamp_sample = t;
+			att_data.q[0] = ref->_f_quat.sample.q[0];
+			att_data.q[1] = ref->_f_quat.sample.q[1];
+			att_data.q[2] = ref->_f_quat.sample.q[2];
+			att_data.q[3] = ref->_f_quat.sample.q[3];
+			att_data.quat_reset_counter = 0;
+
+			ref->_f_quat.updated = false;
+			ref->_vehicle_attitude_pub.publish(att_data);
+		}
+
+		if (ref->_f_ang_rate.updated) {
+			vehicle_angular_velocity_s av{0};
+			av.timestamp = t;
+			av.timestamp_sample = t;
+
+			av.xyz[0] = ref->_f_ang_rate.sample.gyro[0];
+			av.xyz[1] = ref->_f_ang_rate.sample.gyro[1];
+			av.xyz[2] = ref->_f_ang_rate.sample.gyro[2];
+
+			// xyz_derivative ??
+			ref->_f_ang_rate.updated = false;
+			ref->_vehicle_angular_velocity_pub.publish(av);
+		}
+
+
+		// Estimator Status
+		// TODO: for now we only fullfill components needed by the commander
+		estimator_status_s status;
+		status.timestamp = t;
+		status.control_mode_flags = 0;
+		status.filter_fault_flags = 0;
+		status.innovation_check_flags = 0;
+		status.mag_test_ratio = 0.1f;
+		status.vel_test_ratio = 0.1f;
+		status.pos_test_ratio = 0.1f;
+		status.hgt_test_ratio = 0.1f;
+		status.tas_test_ratio = 0.1f;
+		status.hagl_test_ratio = 0.1f;
+		status.beta_test_ratio = 0.1f;
+
+		status.pos_horiz_accuracy = 0.1f;
+		status.pos_vert_accuracy = 0.1f;
+		status.solution_status_flags = 0;
+
+		status.time_slip = 0;
+		status.pre_flt_fail_innov_heading = false;
+		status.pre_flt_fail_innov_vel_horiz = false;
+		status.pre_flt_fail_innov_vel_vert = false;
+		status.pre_flt_fail_innov_height = false;
+		status.pre_flt_fail_mag_field_disturbed = false;
+		ref->_estimator_status_pub.publish(status);
+
+		sensor_selection_s sensor_selection{};
+		sensor_selection.accel_device_id = ref->_config.device_id;
+		sensor_selection.gyro_device_id = ref->_config.device_id;
+		sensor_selection.timestamp = t;
+		ref->_sensor_selection_pub.publish(sensor_selection);
+
+
+	}
+}
 
 void CvIns::cb_accel(void *user, const mip_field *field, timestamp_type timestamp)
 {
@@ -134,6 +349,9 @@ void CvIns::cb_ref_timestamp(void *user, const mip_field *field, timestamp_type 
 			ref->_sensor_baro_pub.publish(ref->_sensor_baro);
 			ref->_baro.updated = false;
 		}
+
+		// Now process the filter information
+		cb_filter_timestamp(user,field,timestamp);
 	}
 }
 
@@ -439,15 +657,110 @@ void CvIns::initialize_cv7()
 			mip_interface_register_field_callback(&device, &sensor_data_handlers[4], MIP_SHARED_DATA_DESC_SET,
 							      MIP_DATA_DESC_SHARED_REFERENCE_TIME, &cb_ref_timestamp, this);
 
-		}
-		break;
+	// 	}
+	// 	break;
 
-	case mode_ahrs: {
-		}
-		break;
+	// case mode_ahrs: {
+	// 	}
+	// 	break;
 
-	case mode_ins: {
+	// case mode_ins: {
+
+		//
+		//External GNSS antenna reference frame
+		//
+		mip_aiding_frame_config_command_rotation rotation{0};
+		for (uint8_t i = 0; i < 3; i++)
+		{
+			rotation.euler[i] = 0.0;
 		}
+		float translation[3] = {0.,0.,0.};
+		mip_aiding_write_frame_config(&device,gnss_antenna_sensor_id,MIP_AIDING_FRAME_CONFIG_COMMAND_FORMAT_EULER,false,translation,&rotation);
+
+		if(mip_filter_write_aiding_measurement_enable(&device, MIP_FILTER_AIDING_MEASUREMENT_ENABLE_COMMAND_AIDING_SOURCE_MAGNETOMETER, true) != MIP_ACK_OK)
+        		PX4_ERR("Could not set filter aiding measurement enable!");
+
+		{
+			// Get the base rate
+			uint16_t filter_base_rate;
+
+			if (mip_3dm_get_base_rate(&device, MIP_FILTER_DATA_DESC_SET, &filter_base_rate) != MIP_ACK_OK) {
+				PX4_ERR("ERROR: Could not get sensor base rate format!");
+				return;
+			}
+
+			PX4_INFO("The CV7 base rate is %d", filter_base_rate);
+
+			// const uint16_t filter_sample_rate = _config.sens_imu_update_rate_hz; // Hz
+			// const uint16_t filter_decimation = filter_base_rate / filter_sample_rate;
+
+			// Scaled Gyro and Accel at a high rate
+			mip_descriptor_rate filter_data[9] = {
+				{ MIP_DATA_DESC_FILTER_POS_LLH, _config.sens_imu_update_rate_hz},
+				{ MIP_DATA_DESC_FILTER_ATT_QUATERNION,  _config.sens_imu_update_rate_hz},
+				{ MIP_DATA_DESC_FILTER_COMPENSATED_ANGULAR_RATE, _config.sens_imu_update_rate_hz},
+				{ MIP_DATA_DESC_FILTER_REL_POS_NED, _config.sens_imu_update_rate_hz},
+				{ MIP_DATA_DESC_FILTER_VEL_NED, _config.sens_imu_update_rate_hz},
+				{ MIP_DATA_DESC_FILTER_LINEAR_ACCELERATION, _config.sens_other_update_rate_hz},
+				{ MIP_DATA_DESC_FILTER_FILTER_STATUS, _config.sens_other_update_rate_hz},
+				{ MIP_DATA_DESC_FILTER_POS_UNCERTAINTY, _config.sens_other_update_rate_hz},
+				{ MIP_DATA_DESC_SHARED_REFERENCE_TIME, _config.sens_imu_update_rate_hz},
+			};
+
+			for (uint16_t i = 0; i < 9; i++) {
+				// Compute the desired decimation and update all of the sensors in this set
+				float sensor_decimation = static_cast<float>(filter_base_rate) / static_cast<float>(filter_data[i].decimation);
+
+				filter_data[i].decimation = static_cast<uint16_t>(sensor_decimation);
+			}
+
+			// Write the settings
+			mip_cmd_result res = mip_3dm_write_message_format(&device, MIP_FILTER_DATA_DESC_SET, 7, filter_data);
+
+			if (res != MIP_ACK_OK) {
+				PX4_ERR("ERROR: Could not set filter message format! Result of %d", res);
+				return;
+			}
+
+			mip_interface_register_field_callback(&device, &filter_data_handlers[0], MIP_FILTER_DATA_DESC_SET,
+							      MIP_DATA_DESC_FILTER_POS_LLH, &cb_filter_llh, this);
+			mip_interface_register_field_callback(&device, &filter_data_handlers[1], MIP_FILTER_DATA_DESC_SET,
+							      MIP_DATA_DESC_FILTER_ATT_QUATERNION, &cb_filter_atq, this);
+			mip_interface_register_field_callback(&device, &filter_data_handlers[2], MIP_FILTER_DATA_DESC_SET,
+							      MIP_DATA_DESC_FILTER_COMPENSATED_ANGULAR_RATE, &cb_filter_ang_rate, this);
+			mip_interface_register_field_callback(&device, &filter_data_handlers[3], MIP_FILTER_DATA_DESC_SET,
+							      MIP_DATA_DESC_FILTER_REL_POS_NED, &cb_filter_rel_pos, this);
+			mip_interface_register_field_callback(&device, &filter_data_handlers[4], MIP_FILTER_DATA_DESC_SET,
+							      MIP_DATA_DESC_FILTER_VEL_NED, &cb_filter_vel_ned, this);
+			mip_interface_register_field_callback(&device, &filter_data_handlers[5], MIP_FILTER_DATA_DESC_SET,
+							      MIP_DATA_DESC_FILTER_LINEAR_ACCELERATION, &cb_filter_lin_accel, this);
+			mip_interface_register_field_callback(&device, &filter_data_handlers[6], MIP_FILTER_DATA_DESC_SET,
+							      MIP_DATA_DESC_FILTER_FILTER_STATUS, &cb_filter_status, this);
+			// mip_interface_register_field_callback(&device, &filter_data_handlers[7], MIP_FILTER_DATA_DESC_SET,
+			// 				      MIP_DATA_DESC_FILTER_FILTER_TIMESTAMP, &cb_filter_timestamp, this);
+			mip_interface_register_field_callback(&device, &filter_data_handlers[7], MIP_FILTER_DATA_DESC_SET,
+							      MIP_DATA_DESC_FILTER_POS_UNCERTAINTY, &cb_filter_pos_uncertainty, this);
+			mip_interface_register_field_callback(&device, &filter_data_handlers[8], MIP_SHARED_DATA_DESC_SET,
+							      MIP_DATA_DESC_SHARED_REFERENCE_TIME, &cb_ref_timestamp, this);
+
+			if(mip_filter_write_aiding_measurement_enable(&device, MIP_FILTER_AIDING_MEASUREMENT_ENABLE_COMMAND_AIDING_SOURCE_MAGNETOMETER, true) != MIP_ACK_OK)
+			PX4_ERR("ERROR: Could not set filter aiding measurement enable!");
+
+			if(mip_filter_write_aiding_measurement_enable(&device, MIP_FILTER_AIDING_MEASUREMENT_ENABLE_COMMAND_AIDING_SOURCE_GNSS_POS_VEL, true) != MIP_ACK_OK)
+				PX4_ERR("ERROR: Could not set filter aiding measurement enable!");
+
+			float filter_init_pos[3] = {0};
+			float filter_init_vel[3] = {0};
+
+			if(mip_filter_write_initialization_configuration(&device, 0, MIP_FILTER_INITIALIZATION_CONFIGURATION_COMMAND_INITIAL_CONDITION_SOURCE_AUTO_POS_VEL_ATT,
+			MIP_FILTER_INITIALIZATION_CONFIGURATION_COMMAND_ALIGNMENT_SELECTOR_MAGNETOMETER,
+			0.0, 0.0, 0.0, filter_init_pos, filter_init_vel, MIP_FILTER_REFERENCE_FRAME_LLH) != MIP_ACK_OK)
+				PX4_ERR("ERROR: Could not set filter initialization configuration!");
+
+			if(mip_filter_reset(&device) != MIP_ACK_OK)
+				PX4_ERR("ERROR: Could not reset the filter!");
+		}
+	}
 		break;
 
 	default:

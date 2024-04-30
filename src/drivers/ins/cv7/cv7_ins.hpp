@@ -54,11 +54,24 @@
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/sensor_baro.h>
 #include <uORB/topics/sensor_selection.h>
+#include <uORB/topics/vehicle_global_position.h>
+#include <uORB/topics/vehicle_status.h>
+#include <uORB/topics/vehicle_local_position.h>
+#include <uORB/topics/vehicle_angular_velocity.h>
+#include <uORB/topics/vehicle_attitude.h>
+#include <uORB/topics/vehicle_air_data.h>
+#include <uORB/topics/distance_sensor.h>
+#include <uORB/topics/estimator_status.h>
+#include <uORB/topics/sensor_selection.h>
+#include <uORB/topics/vehicle_global_position.h>
+
 
 
 #include "mip_sdk/src/mip/mip_all.h"
 #include "mip_sdk/src/mip/mip_interface.h"
 #include "mip_sdk/src/mip/utils/serial_port.h"
+
+#include "mip_sdk/src/mip/definitions/commands_aiding.h"
 
 #include "LogWriter.hpp"
 #include <containers/Array.hpp>
@@ -82,6 +95,17 @@ public:
 	static void cb_gyro(void *user, const mip_field *field, timestamp_type timestamp);
 	static void cb_mag(void *user, const mip_field *field, timestamp_type timestamp);
 	static void cb_baro(void *user, const mip_field *field, timestamp_type timestamp);
+
+	// Filter Callbacks
+	static void cb_filter_llh(void *user, const mip_field *field, timestamp_type timestamp);
+	static void cb_filter_atq(void *user, const mip_field *field, timestamp_type timestamp);
+	static void cb_filter_ang_rate(void *user, const mip_field *field, timestamp_type timestamp);
+	static void cb_filter_rel_pos(void *user, const mip_field *field, timestamp_type timestamp);
+	static void cb_filter_vel_ned(void *user, const mip_field *field, timestamp_type timestamp);
+	static void cb_filter_lin_accel(void *user, const mip_field *field, timestamp_type timestamp);
+	static void cb_filter_status(void *user, const mip_field *field, timestamp_type timestamp);
+	static void cb_filter_pos_uncertainty(void *user, const mip_field *field, timestamp_type timestamp);
+	static void cb_filter_timestamp(void *user, const mip_field *field, timestamp_type timestamp);
 
 	// Common Callback/s
 	static void cb_ref_timestamp(void *user, const mip_field *field, timestamp_type timestamp);
@@ -151,6 +175,15 @@ private:
 	ext_sample<mip_sensor_scaled_gyro_data> _gyro{0};
 	ext_sample<mip_sensor_scaled_mag_data> _mag{0};
 	ext_sample<mip_sensor_scaled_pressure_data> _baro{0};
+	ext_sample<mip_filter_position_llh_data> _f_llh{0};
+	ext_sample<mip_filter_attitude_quaternion_data> _f_quat{0};
+	ext_sample<mip_filter_comp_angular_rate_data> _f_ang_rate{0};
+	ext_sample<mip_filter_rel_pos_ned_data> _f_rel_pos{0};
+	ext_sample<mip_filter_velocity_ned_data> _f_vel_ned{0};
+	ext_sample<mip_filter_linear_accel_data> _f_lin_veld{0};
+	ext_sample<mip_filter_status_data> _f_status{0};
+	ext_sample<mip_filter_position_llh_uncertainty_data> _f_pos_uncertainty{0};
+	ext_sample<mip_filter_timestamp_data> _f_timestamp{0};
 
 	// Sensor types needed for message creation / updating / publishing
 	PX4Accelerometer _px4_accel{0};
@@ -158,7 +191,15 @@ private:
 	PX4Magnetometer _px4_mag{0};
 	sensor_baro_s _sensor_baro{0};
 
-	// Publications
+	uORB::Publication<vehicle_local_position_s> _vehicle_local_position_pub{ORB_ID(vehicle_local_position)};
+	uORB::Publication<vehicle_angular_velocity_s> _vehicle_angular_velocity_pub{ORB_ID(vehicle_angular_velocity)};
+	uORB::Publication<vehicle_attitude_s> _vehicle_attitude_pub{ORB_ID(vehicle_attitude)};
+	uORB::Publication<vehicle_global_position_s> _global_position_pub{ORB_ID(vehicle_global_position)};
+
+	// Needed for health checks
+	uORB::Publication<estimator_status_s> _estimator_status_pub{ORB_ID(estimator_status)};
+
+	// Must publish to prevent sensor stale failure (sensors module)
 	uORB::PublicationMulti<sensor_baro_s> _sensor_baro_pub{ORB_ID(sensor_baro)};
 	uORB::Publication<sensor_selection_s> _sensor_selection_pub{ORB_ID(sensor_selection)};
 
@@ -180,6 +221,7 @@ private:
 
 	// Handlers
 	mip_dispatch_handler sensor_data_handlers[10];
+	mip_dispatch_handler filter_data_handlers[10];
 
 	const char *_uart_device;
 	int64_t _cv7_offset_time{0};
