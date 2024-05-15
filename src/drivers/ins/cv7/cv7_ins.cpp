@@ -57,7 +57,6 @@ void CvIns::cb_filter_llh(void *user, const mip_field *field, timestamp_type tim
 	CvIns *ref = static_cast<CvIns *>(user);
 	mip_filter_position_llh_data data;
 	if (extract_mip_filter_position_llh_data_from_field(field,&data)){
-		PX4_INFO_RAW("1");
 		ref->_f_llh.update_sample(data);
 	}
 }
@@ -68,7 +67,6 @@ void CvIns::cb_filter_atq(void *user, const mip_field *field, timestamp_type tim
 	mip_filter_attitude_quaternion_data data;
 
 	if (extract_mip_filter_attitude_quaternion_data_from_field(field,&data)){
-		PX4_INFO_RAW("2");
 		ref->_f_quat.update_sample(data);
 	}
 }
@@ -78,7 +76,6 @@ void CvIns::cb_filter_ang_rate(void *user, const mip_field *field, timestamp_typ
 	mip_filter_comp_angular_rate_data data;
 
 	if (extract_mip_filter_comp_angular_rate_data_from_field(field,&data)){
-		PX4_INFO_RAW("3");
 		// PX4_INFO("%f, %f, %f", (double)data.gyro[0], (double)data.gyro[1], (double)data.gyro[2]);
 		ref->_f_ang_rate.update_sample(data);
 	}
@@ -90,7 +87,6 @@ void CvIns::cb_filter_rel_pos(void *user, const mip_field *field, timestamp_type
 	mip_filter_rel_pos_ned_data data;
 
 	if (extract_mip_filter_rel_pos_ned_data_from_field(field,&data)){
-		PX4_INFO_RAW("4");
 		ref->_f_rel_pos.update_sample(data);
 	}
 }
@@ -100,7 +96,6 @@ void CvIns::cb_filter_vel_ned(void *user, const mip_field *field, timestamp_type
 	mip_filter_velocity_ned_data data;
 
 	if (extract_mip_filter_velocity_ned_data_from_field(field,&data)){
-		PX4_INFO_RAW("5");
 		ref->_f_vel_ned.update_sample(data);
 	}
 }
@@ -110,7 +105,6 @@ void CvIns::cb_filter_lin_accel(void *user, const mip_field *field, timestamp_ty
 	mip_filter_linear_accel_data data;
 
 	if (extract_mip_filter_linear_accel_data_from_field(field,&data)){
-		PX4_INFO_RAW("6");
 		ref->_f_lin_veld.update_sample(data);
 	}
 }
@@ -120,7 +114,6 @@ void CvIns::cb_filter_status(void *user, const mip_field *field, timestamp_type 
 	mip_filter_status_data data;
 
 	if (extract_mip_filter_status_data_from_field(field,&data)){
-		PX4_INFO_RAW("7");
 		ref->_f_status.update_sample(data);
 	}
 }
@@ -130,7 +123,6 @@ void CvIns::cb_filter_pos_uncertainty(void *user, const mip_field *field, timest
 	mip_filter_position_llh_uncertainty_data data;
 
 	if (extract_mip_filter_position_llh_uncertainty_data_from_field(field,&data)){
-		PX4_INFO_RAW("8");
 		ref->_f_pos_uncertainty.update_sample(data);
 	}
 }
@@ -426,6 +418,10 @@ bool mip_interface_user_send_to_device(mip_interface *device, const uint8_t *dat
 
 	PX4_DEBUG("TX %d", length);
 	int res = device_uart.uart_write(const_cast<uint8_t *>(data), length);
+
+	if(cv7_ins){
+		cv7_ins->_debug_tx_bytes += length;
+	}
 
 	if (res >= 0) {
 		return true;
@@ -802,12 +798,60 @@ void CvIns::service_cv7()
 	mip_interface_update(&device, false);
 
 	switch (_config.selected_mode) {
+	case mode_ahrs:
+	case mode_imu:
 	case mode_ins:
+	{
+		sensor_gps_s gps{0};
+		// No new data
+		if(!_sensor_gps_sub.update(&gps)){
+			break;
+		}
+
+		// Fix isn't 3D or RTK or RTCM
+		if((gps.fix_type < 3) || (gps.fix_type > 6)){
+			break;
+		}
+
+		#define deg_conv(x) (double((x*1.f) / 10000000.f))
+		#if 0
+
+		mip_time t;
+		t.timebase = MIP_TIME_TIMEBASE_TIME_OF_ARRIVAL;
+		t.reserved = 0x01;
+		t.nanoseconds = gps.time_utc_usec * 1000; // convert UTC_us to nanoseconds
+
+
+		// float llh_uncertainty[3] = {gps.eph,gps.eph,gps.eph}; // What is the uncertainty?
+		float llh_uncertainty[3] = {1.0, 1.0, 1.0};
+		mip_aiding_llh_pos(&device,&t,MIP_FILTER_REFERENCE_FRAME_LLH,deg_conv(gps.lat), deg_conv(gps.lon), gps.alt/1000.f,llh_uncertainty, MIP_AIDING_LLH_POS_COMMAND_VALID_FLAGS_ALL);
+
+		if(gps.vel_ned_valid){
+			float ned_v[3] = {gps.vel_n_m_s,gps.vel_e_m_s,gps.vel_d_m_s};
+			// float ned_velocity_uncertainty[3] = {gps.s_variance_m_s,gps.s_variance_m_s,gps.s_variance_m_s}; // What is the uncertainty of NED velocity?
+			float ned_velocity_uncertainty[3] = {0.1, 0.1, 0.1};
+			mip_aiding_ned_vel(&device,&t,MIP_FILTER_REFERENCE_FRAME_LLH,ned_v, ned_velocity_uncertainty,MIP_AIDING_NED_VEL_COMMAND_VALID_FLAGS_ALL);
+		}
+
+		if(PX4_ISFINITE(gps.heading)){
+			float heading = PX4_ISFINITE(gps.heading_offset) ? gps.heading + gps.heading_offset : gps.heading;
+			// There are no pre-defined flags for the heading (that I can find), setting everything to 1 for now
+			mip_aiding_true_heading(&device,&t,MIP_FILTER_REFERENCE_FRAME_LLH,heading,gps.heading_accuracy,0xff);
+		}
+
+		#else
+		float ned_v[3] = {gps.vel_n_m_s,gps.vel_e_m_s,gps.vel_d_m_s};
+		float ned_velocity_uncertainty[3] = {0.1, 0.1, 0.1};
+		float llh_uncertainty[3] = {1.0, 1.0, 1.0};
+		// mip_cmd_result mip_filter_external_gnss_update(struct mip_interface* device, double gps_time, uint16_t gps_week, double latitude, double longitude, double height, const float* velocity, const float* pos_uncertainty, const float* vel_uncertainty)
+		mip_filter_external_gnss_update(&device,(gps.time_utc_usec*1_s)*1.f,0,deg_conv(gps.lat), deg_conv(gps.lon), gps.alt_ellipsoid/1000.f,ned_v,llh_uncertainty,ned_velocity_uncertainty);
+		#endif
+
+	}
 		// Feed any aiding information into the driver here
 		break;
 
-	case mode_ahrs:
-	case mode_imu:
+
 	default:
 		break;
 	}
@@ -926,6 +970,7 @@ int CvIns::print_status()
 {
 	PX4_INFO_RAW("Serial Port Open %d Handle %d Device %s\n", device_uart.is_open(), device_uart.uart_get_fd(),
 		     _uart_device);
+	PX4_INFO_RAW("TX Bytes %lu\n", _debug_tx_bytes);
 	PX4_INFO_RAW("Min %lu\n", _debug_rx_bytes[0]);
 	PX4_INFO_RAW("Total %lu\n", _debug_rx_bytes[1]);
 	PX4_INFO_RAW("Max %lu\n", _debug_rx_bytes[2]);
@@ -935,6 +980,7 @@ int CvIns::print_status()
 	for (int i = 1; i < 4; i++) {
 		_debug_rx_bytes[i] = 0;
 	}
+	_debug_tx_bytes = 0;
 
 	perf_print_counter(_loop_perf);
 	perf_print_counter(_loop_interval_perf);

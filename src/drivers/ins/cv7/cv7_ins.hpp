@@ -53,6 +53,7 @@
 #include <uORB/topics/sensor_accel.h>
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/sensor_baro.h>
+#include <uORB/topics/sensor_gps.h>
 #include <uORB/topics/sensor_selection.h>
 #include <uORB/topics/vehicle_global_position.h>
 #include <uORB/topics/vehicle_status.h>
@@ -129,6 +130,7 @@ public:
 	void update_imu_sample_time(hrt_abstime t) { _last_imu_time = t; }
 
 	uint32_t _debug_rx_bytes[4] {0};
+	uint32_t _debug_tx_bytes{0};
 
 	uint64_t _delay_offset{0};
 
@@ -205,6 +207,7 @@ private:
 
 	// Subscriptions
 	uORB::SubscriptionInterval         _parameter_update_sub{ORB_ID(parameter_update), 1_s}; // subscription limited to 1 Hz updates
+	uORB::Subscription                 _sensor_gps_sub{ORB_ID(sensor_gps)};
 
 	// Performance (perf) counters
 	perf_counter_t	_loop_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": cycle")};
