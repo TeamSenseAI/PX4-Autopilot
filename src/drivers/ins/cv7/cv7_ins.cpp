@@ -814,12 +814,18 @@ void CvIns::service_cv7()
 		}
 
 		#define deg_conv(x) (double((x*1.f) / 10000000.f))
-		#if 0
+		#if 1
+
+		// If the timestamp has not been set, then don't send any data
+		// into the cv7 filter
+		if(gps.time_utc_usec == 0){
+			return;
+		}
 
 		mip_time t;
 		t.timebase = MIP_TIME_TIMEBASE_TIME_OF_ARRIVAL;
 		t.reserved = 0x01;
-		t.nanoseconds = gps.time_utc_usec * 1000; // convert UTC_us to nanoseconds
+		t.nanoseconds = 0; // No offset
 
 
 		// float llh_uncertainty[3] = {gps.eph,gps.eph,gps.eph}; // What is the uncertainty?
