@@ -34,7 +34,8 @@ else
 	#
 	if param compare SYS_MC_EST_GROUP 3
 	then
-		attitude_estimator_q start
+		# attitude_estimator_q start
+		echo "supressing start of attitude_q estimator"
 	else
 		#
 		# EKF2
