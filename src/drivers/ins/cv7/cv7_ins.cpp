@@ -239,6 +239,8 @@ void CvIns::cb_filter_timestamp(void *user, const mip_field *field, timestamp_ty
 			dbg.data[5] = ref->_f_aiding_summary.sample.source * 1.0f;
 			dbg.data[6] = ref->_f_aiding_summary.sample.type * 1.0f;
 
+			ref->_debug_array_pub.publish(dbg);
+
 			ref->_f_status.updated = false;
 			ref->_f_aiding_summary.updated = false;
 		}
@@ -1007,6 +1009,18 @@ int CvIns::print_status()
 		_debug_rx_bytes[i] = 0;
 	}
 	_debug_tx_bytes = 0;
+
+	#ifdef LOG_TRANSACTIONS
+	PX4_INFO_RAW("MIP Stream Log \n");
+	PX4_INFO_RAW("Logged TX %llu\n", _logger.logged_bytes[0]);
+	PX4_INFO_RAW("Logged RX %llu\n", _logger.logged_bytes[1]);
+	PX4_INFO_RAW("Overflow TX Counts %llu\n", _logger.buffer_full[0]);
+	PX4_INFO_RAW("Overflow RX Counts %llu\n", _logger.buffer_full[1]);
+	_logger.logged_bytes[0] = 0;
+	_logger.logged_bytes[1] = 0;
+	_logger.buffer_full[0] = 0;
+	_logger.buffer_full[1] = 0;
+	#endif
 
 	perf_print_counter(_loop_perf);
 	perf_print_counter(_loop_interval_perf);
