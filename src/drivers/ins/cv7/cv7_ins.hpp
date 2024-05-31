@@ -50,6 +50,7 @@
 #include <uORB/SubscriptionCallback.hpp>
 #include <uORB/topics/orb_test.h>
 #include <uORB/topics/parameter_update.h>
+#include <uORB/topics/debug_array.h>
 #include <uORB/topics/sensor_accel.h>
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/sensor_baro.h>
@@ -105,6 +106,7 @@ public:
 	static void cb_filter_vel_ned(void *user, const mip_field *field, timestamp_type timestamp);
 	static void cb_filter_lin_accel(void *user, const mip_field *field, timestamp_type timestamp);
 	static void cb_filter_status(void *user, const mip_field *field, timestamp_type timestamp);
+	static void cb_filter_meas_status(void *user, const mip_field *field, timestamp_type timestamp);
 	static void cb_filter_pos_uncertainty(void *user, const mip_field *field, timestamp_type timestamp);
 	static void cb_filter_timestamp(void *user, const mip_field *field, timestamp_type timestamp);
 
@@ -160,6 +162,7 @@ private:
 		enum cv7_mode selected_mode = mode_imu;
 		uint16_t sens_imu_update_rate_hz = 500;
 		uint16_t sens_other_update_rate_hz = 50;
+		uint16_t sens_status_update_rate_hz = 5;
 		enum Rotation rot = ROTATION_NONE;
 		uint32_t device_id{0};
 	};
@@ -184,6 +187,7 @@ private:
 	ext_sample<mip_filter_velocity_ned_data> _f_vel_ned{0};
 	ext_sample<mip_filter_linear_accel_data> _f_lin_veld{0};
 	ext_sample<mip_filter_status_data> _f_status{0};
+	ext_sample<mip_filter_aiding_measurement_summary_data> _f_aiding_summary{0};
 	ext_sample<mip_filter_position_llh_uncertainty_data> _f_pos_uncertainty{0};
 	ext_sample<mip_filter_timestamp_data> _f_timestamp{0};
 
@@ -193,10 +197,11 @@ private:
 	PX4Magnetometer _px4_mag{0};
 	sensor_baro_s _sensor_baro{0};
 
-	uORB::Publication<vehicle_local_position_s> _vehicle_local_position_pub{ORB_ID(vehicle_local_position)};
-	uORB::Publication<vehicle_angular_velocity_s> _vehicle_angular_velocity_pub{ORB_ID(vehicle_angular_velocity)};
-	uORB::Publication<vehicle_attitude_s> _vehicle_attitude_pub{ORB_ID(vehicle_attitude)};
-	uORB::Publication<vehicle_global_position_s> _global_position_pub{ORB_ID(vehicle_global_position)};
+	uORB::Publication<vehicle_local_position_s> _vehicle_local_position_pub{ORB_ID(external_ins_local_position)};
+	uORB::Publication<vehicle_angular_velocity_s> _vehicle_angular_velocity_pub{ORB_ID(external_ins_angular_velocity)};
+	uORB::Publication<vehicle_attitude_s> _vehicle_attitude_pub{ORB_ID(external_ins_attitude)};
+	uORB::Publication<vehicle_global_position_s> _global_position_pub{ORB_ID(external_ins_global_position)};
+	uORB::Publication<debug_array_s> _debug_array_pub{ORB_ID(debug_array)};
 
 	// Needed for health checks
 	uORB::Publication<estimator_status_s> _estimator_status_pub{ORB_ID(estimator_status)};
@@ -224,7 +229,7 @@ private:
 
 	// Handlers
 	mip_dispatch_handler sensor_data_handlers[10];
-	mip_dispatch_handler filter_data_handlers[10];
+	mip_dispatch_handler filter_data_handlers[11];
 
 	const char *_uart_device;
 	int64_t _cv7_offset_time{0};

@@ -38,7 +38,7 @@
 #include "mip_sdk/src/mip/mip_parser.h"
 #include "CircularBuffer.hpp"
 
-// #define LOG_TRANSACTIONS
+#define LOG_TRANSACTIONS
 
 uint8_t external_heading_sensor_id = 1;
 uint8_t gnss_antenna_sensor_id = 2;
@@ -117,6 +117,15 @@ void CvIns::cb_filter_status(void *user, const mip_field *field, timestamp_type 
 		ref->_f_status.update_sample(data);
 	}
 }
+void CvIns::cb_filter_meas_status(void *user, const mip_field *field, timestamp_type timestamp)
+{
+	CvIns *ref = static_cast<CvIns *>(user);
+	mip_filter_aiding_measurement_summary_data data;
+
+	if (extract_mip_filter_aiding_measurement_summary_data_from_field(field,&data)){
+		ref->_f_aiding_summary.update_sample(data);
+	}
+}
 void CvIns::cb_filter_pos_uncertainty(void *user, const mip_field *field, timestamp_type timestamp)
 {
 	CvIns *ref = static_cast<CvIns *>(user);
@@ -145,6 +154,7 @@ void CvIns::cb_filter_timestamp(void *user, const mip_field *field, timestamp_ty
 			gp.lat = ref->_f_llh.sample.latitude;
 			gp.lon = ref->_f_llh.sample.longitude;
 			gp.alt_ellipsoid = ref->_f_llh.sample.ellipsoid_height;
+			gp.alt = ref->_f_llh.sample.ellipsoid_height;
 			gp.eph = 0.1f;
 			gp.epv = 0.1f;
 
@@ -216,7 +226,24 @@ void CvIns::cb_filter_timestamp(void *user, const mip_field *field, timestamp_ty
 			ref->_vehicle_angular_velocity_pub.publish(av);
 		}
 
+		if(ref->_f_status.updated || ref->_f_aiding_summary.updated){
+			debug_array_s dbg{0};
+			dbg.id = 0x01;
+			dbg.timestamp = t;
+			strcpy(dbg.name,"CV7");
+			dbg.data[0] = ref->_f_status.sample.filter_state * 1.0f;
+			dbg.data[1] = ref->_f_status.sample.dynamics_mode * 1.0f;
+			dbg.data[2] = ref->_f_status.sample.status_flags * 1.0f;
+			dbg.data[3] = ref->_f_aiding_summary.sample.indicator * 1.0f;
+			dbg.data[4] = ref->_f_aiding_summary.sample.time_of_week * 1.0f;
+			dbg.data[5] = ref->_f_aiding_summary.sample.source * 1.0f;
+			dbg.data[6] = ref->_f_aiding_summary.sample.type * 1.0f;
 
+			ref->_f_status.updated = false;
+			ref->_f_aiding_summary.updated = false;
+		}
+
+#if 0
 		// Estimator Status
 		// TODO: for now we only fullfill components needed by the commander
 		estimator_status_s status;
@@ -249,7 +276,7 @@ void CvIns::cb_filter_timestamp(void *user, const mip_field *field, timestamp_ty
 		sensor_selection.gyro_device_id = ref->_config.device_id;
 		sensor_selection.timestamp = t;
 		ref->_sensor_selection_pub.publish(sensor_selection);
-
+#endif
 
 	}
 }
@@ -691,19 +718,20 @@ void CvIns::initialize_cv7()
 			// const uint16_t filter_decimation = filter_base_rate / filter_sample_rate;
 
 			// Scaled Gyro and Accel at a high rate
-			mip_descriptor_rate filter_data[9] = {
+			mip_descriptor_rate filter_data[10] = {
 				{ MIP_DATA_DESC_FILTER_POS_LLH, _config.sens_imu_update_rate_hz},
 				{ MIP_DATA_DESC_FILTER_ATT_QUATERNION,  _config.sens_imu_update_rate_hz},
 				{ MIP_DATA_DESC_FILTER_COMPENSATED_ANGULAR_RATE, _config.sens_imu_update_rate_hz},
 				{ MIP_DATA_DESC_FILTER_REL_POS_NED, _config.sens_imu_update_rate_hz},
 				{ MIP_DATA_DESC_FILTER_VEL_NED, _config.sens_imu_update_rate_hz},
 				{ MIP_DATA_DESC_FILTER_LINEAR_ACCELERATION, _config.sens_other_update_rate_hz},
-				{ MIP_DATA_DESC_FILTER_FILTER_STATUS, _config.sens_other_update_rate_hz},
+				{ MIP_DATA_DESC_FILTER_FILTER_STATUS, _config.sens_status_update_rate_hz},
 				{ MIP_DATA_DESC_FILTER_POS_UNCERTAINTY, _config.sens_other_update_rate_hz},
 				{ MIP_DATA_DESC_SHARED_REFERENCE_TIME, _config.sens_imu_update_rate_hz},
+				{ MIP_DATA_DESC_FILTER_AID_MEAS_SUMMARY, _config.sens_status_update_rate_hz},
 			};
 
-			for (uint16_t i = 0; i < 9; i++) {
+			for (uint16_t i = 0; i < 10; i++) {
 				// Compute the desired decimation and update all of the sensors in this set
 				float sensor_decimation = static_cast<float>(filter_base_rate) / static_cast<float>(filter_data[i].decimation);
 
@@ -711,7 +739,7 @@ void CvIns::initialize_cv7()
 			}
 
 			// Write the settings
-			mip_cmd_result res = mip_3dm_write_message_format(&device, MIP_FILTER_DATA_DESC_SET, 7, filter_data);
+			mip_cmd_result res = mip_3dm_write_message_format(&device, MIP_FILTER_DATA_DESC_SET, 10, filter_data);
 
 			if (res != MIP_ACK_OK) {
 				PX4_ERR("ERROR: Could not set filter message format! Result of %d", res);
@@ -738,6 +766,8 @@ void CvIns::initialize_cv7()
 							      MIP_DATA_DESC_FILTER_POS_UNCERTAINTY, &cb_filter_pos_uncertainty, this);
 			mip_interface_register_field_callback(&device, &filter_data_handlers[8], MIP_SHARED_DATA_DESC_SET,
 							      MIP_DATA_DESC_SHARED_REFERENCE_TIME, &cb_ref_timestamp, this);
+			mip_interface_register_field_callback(&device, &filter_data_handlers[9], MIP_FILTER_DATA_DESC_SET,
+							      MIP_DATA_DESC_FILTER_AID_MEAS_SUMMARY, &cb_filter_meas_status, this);
 
 			if(mip_filter_write_aiding_measurement_enable(&device, MIP_FILTER_AIDING_MEASUREMENT_ENABLE_COMMAND_AIDING_SOURCE_MAGNETOMETER, true) != MIP_ACK_OK)
 			PX4_ERR("ERROR: Could not set filter aiding measurement enable!");
@@ -814,7 +844,6 @@ void CvIns::service_cv7()
 		}
 
 		#define deg_conv(x) (double((x*1.f) / 10000000.f))
-		#if 1
 
 		// If the timestamp has not been set, then don't send any data
 		// into the cv7 filter
@@ -830,7 +859,7 @@ void CvIns::service_cv7()
 
 		// float llh_uncertainty[3] = {gps.eph,gps.eph,gps.eph}; // What is the uncertainty?
 		float llh_uncertainty[3] = {1.0, 1.0, 1.0};
-		mip_aiding_llh_pos(&device,&t,MIP_FILTER_REFERENCE_FRAME_LLH,deg_conv(gps.lat), deg_conv(gps.lon), gps.alt/1000.f,llh_uncertainty, MIP_AIDING_LLH_POS_COMMAND_VALID_FLAGS_ALL);
+		mip_aiding_llh_pos(&device,&t,MIP_FILTER_REFERENCE_FRAME_LLH,deg_conv(gps.lat), deg_conv(gps.lon), ((gps.alt_ellipsoid*1.f)/1000.f),llh_uncertainty, MIP_AIDING_LLH_POS_COMMAND_VALID_FLAGS_ALL);
 
 		if(gps.vel_ned_valid){
 			float ned_v[3] = {gps.vel_n_m_s,gps.vel_e_m_s,gps.vel_d_m_s};
@@ -844,18 +873,9 @@ void CvIns::service_cv7()
 			// There are no pre-defined flags for the heading (that I can find), setting everything to 1 for now
 			mip_aiding_true_heading(&device,&t,MIP_FILTER_REFERENCE_FRAME_LLH,heading,gps.heading_accuracy,0xff);
 		}
-
-		#else
-		float ned_v[3] = {gps.vel_n_m_s,gps.vel_e_m_s,gps.vel_d_m_s};
-		float ned_velocity_uncertainty[3] = {0.1, 0.1, 0.1};
-		float llh_uncertainty[3] = {1.0, 1.0, 1.0};
-		// mip_cmd_result mip_filter_external_gnss_update(struct mip_interface* device, double gps_time, uint16_t gps_week, double latitude, double longitude, double height, const float* velocity, const float* pos_uncertainty, const float* vel_uncertainty)
-		mip_filter_external_gnss_update(&device,(gps.time_utc_usec*1_s)*1.f,0,deg_conv(gps.lat), deg_conv(gps.lon), gps.alt_ellipsoid/1000.f,ned_v,llh_uncertainty,ned_velocity_uncertainty);
-		#endif
-
 	}
-		// Feed any aiding information into the driver here
-		break;
+
+	break;
 
 
 	default:
