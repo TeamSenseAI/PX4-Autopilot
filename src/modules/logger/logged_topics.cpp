@@ -57,6 +57,7 @@ void LoggedTopics::add_default_topics()
 	add_topic("commander_state");
 	add_topic("cpuload");
 	add_optional_topic("external_ins_attitude");
+	add_optional_topic("external_ins_angular_velocity");
 	add_optional_topic("external_ins_global_position");
 	add_optional_topic("external_ins_local_position");
 	add_optional_topic("esc_status", 250);
