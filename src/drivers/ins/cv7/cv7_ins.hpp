@@ -65,6 +65,7 @@
 #include <uORB/topics/distance_sensor.h>
 #include <uORB/topics/estimator_status.h>
 #include <uORB/topics/sensor_selection.h>
+#include <uORB/topics/vehicle_odometry.h>
 #include <uORB/topics/vehicle_global_position.h>
 
 
@@ -108,6 +109,8 @@ public:
 	static void cb_filter_status(void *user, const mip_field *field, timestamp_type timestamp);
 	static void cb_filter_meas_status(void *user, const mip_field *field, timestamp_type timestamp);
 	static void cb_filter_pos_uncertainty(void *user, const mip_field *field, timestamp_type timestamp);
+	static void cb_filter_vel_uncertainty(void *user, const mip_field *field, timestamp_type timestamp);
+	static void cb_filter_atte_uncertainty(void *user, const mip_field *field, timestamp_type timestamp);
 	static void cb_filter_timestamp(void *user, const mip_field *field, timestamp_type timestamp);
 
 	// Common Callback/s
@@ -189,6 +192,8 @@ private:
 	ext_sample<mip_filter_status_data> _f_status{0};
 	ext_sample<mip_filter_aiding_measurement_summary_data> _f_aiding_summary{0};
 	ext_sample<mip_filter_position_llh_uncertainty_data> _f_pos_uncertainty{0};
+	ext_sample<mip_filter_velocity_ned_uncertainty_data> _f_vel_uncertainty{0};
+	ext_sample<mip_filter_euler_angles_uncertainty_data> _f_atte_uncertainty{0};
 	ext_sample<mip_filter_timestamp_data> _f_timestamp{0};
 
 	// Sensor types needed for message creation / updating / publishing
@@ -201,6 +206,7 @@ private:
 	uORB::Publication<vehicle_angular_velocity_s> _vehicle_angular_velocity_pub{ORB_ID(external_ins_angular_velocity)};
 	uORB::Publication<vehicle_attitude_s> _vehicle_attitude_pub{ORB_ID(external_ins_attitude)};
 	uORB::Publication<vehicle_global_position_s> _global_position_pub{ORB_ID(external_ins_global_position)};
+	uORB::Publication<vehicle_odometry_s> _vehicle_odometry_pub{ORB_ID(external_ins_odometry)};
 	uORB::Publication<debug_array_s> _debug_array_pub{ORB_ID(debug_array)};
 
 	// Needed for health checks
@@ -229,7 +235,7 @@ private:
 
 	// Handlers
 	mip_dispatch_handler sensor_data_handlers[10];
-	mip_dispatch_handler filter_data_handlers[11];
+	mip_dispatch_handler filter_data_handlers[12];
 
 	const char *_uart_device;
 	int64_t _cv7_offset_time{0};

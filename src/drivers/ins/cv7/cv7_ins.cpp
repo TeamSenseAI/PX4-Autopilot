@@ -135,6 +135,24 @@ void CvIns::cb_filter_pos_uncertainty(void *user, const mip_field *field, timest
 		ref->_f_pos_uncertainty.update_sample(data);
 	}
 }
+void CvIns::cb_filter_vel_uncertainty(void *user, const mip_field *field, timestamp_type timestamp)
+{
+	CvIns *ref = static_cast<CvIns *>(user);
+	mip_filter_velocity_ned_uncertainty_data data;
+
+	if (extract_mip_filter_velocity_ned_uncertainty_data_from_field(field,&data)){
+		ref->_f_vel_uncertainty.update_sample(data);
+	}
+}
+void CvIns::cb_filter_atte_uncertainty(void *user, const mip_field *field, timestamp_type timestamp)
+{
+	CvIns *ref = static_cast<CvIns *>(user);
+	mip_filter_euler_angles_uncertainty_data data;
+
+	if (extract_mip_filter_euler_angles_uncertainty_data_from_field(field,&data)){
+		ref->_f_atte_uncertainty.update_sample(data);
+	}
+}
 
 void CvIns::cb_filter_timestamp(void *user, const mip_field *field, timestamp_type timestamp)
 {
@@ -162,6 +180,7 @@ void CvIns::cb_filter_timestamp(void *user, const mip_field *field, timestamp_ty
 			ref->_global_position_pub.publish(gp);
 		}
 
+
 		if (ref->_f_rel_pos.updated && ref->_f_vel_ned.updated) {
 			vehicle_local_position_s vp{0};
 			vp.timestamp = t;
@@ -173,6 +192,42 @@ void CvIns::cb_filter_timestamp(void *user, const mip_field *field, timestamp_ty
 			vp.vx = ref->_f_vel_ned.sample.north;
 			vp.vy = ref->_f_vel_ned.sample.east;
 			vp.vz = ref->_f_vel_ned.sample.down;
+
+			if(ref->_f_pos_uncertainty.updated){
+				vp.eph = sqrt(ref->_f_pos_uncertainty.sample.north*ref->_f_pos_uncertainty.sample.north + ref->_f_pos_uncertainty.sample.east*ref->_f_pos_uncertainty.sample.east);
+				vp.epv = ref->_f_pos_uncertainty.sample.down;
+			}
+			if(ref->_f_vel_uncertainty.updated){
+				vp.evh = sqrt(ref->_f_vel_uncertainty.sample.north*ref->_f_vel_uncertainty.sample.north + ref->_f_vel_uncertainty.sample.east*ref->_f_vel_uncertainty.sample.east);
+				vp.evv = ref->_f_pos_uncertainty.sample.down;
+			}
+			if(ref->_f_atte_uncertainty.updated){
+				vehicle_odometry_s vo{0};
+				vo.timestamp = t;
+				vo.timestamp_sample = t;
+
+				vo.position[0] = ref->_f_rel_pos.sample.relative_position[0];
+				vo.position[1] = ref->_f_rel_pos.sample.relative_position[1];
+				vo.position[2] = ref->_f_rel_pos.sample.relative_position[2];
+
+				vo.velocity[0] = ref->_f_vel_ned.sample.north;
+				vo.velocity[1] = ref->_f_vel_ned.sample.east;
+				vo.velocity[2] = ref->_f_vel_ned.sample.down;
+
+				vo.position_variance[0] = ref->_f_pos_uncertainty.sample.north;
+				vo.position_variance[1] = ref->_f_pos_uncertainty.sample.east;
+				vo.position_variance[2] = ref->_f_pos_uncertainty.sample.down;
+
+				vo.velocity_variance[0] = ref->_f_vel_uncertainty.sample.north;
+				vo.velocity_variance[1] = ref->_f_vel_uncertainty.sample.east;
+				vo.velocity_variance[2] = ref->_f_vel_uncertainty.sample.down;
+
+				vo.orientation_variance[0] = ref->_f_atte_uncertainty.sample.roll;
+				vo.orientation_variance[1] = ref->_f_atte_uncertainty.sample.pitch;
+				vo.orientation_variance[2] = ref->_f_atte_uncertainty.sample.yaw;
+
+				ref->_vehicle_odometry_pub.publish(vo);
+			}
 
 			vp.delta_xy[0] = 0.f;
 			vp.delta_xy[1] = 0.f;
@@ -720,7 +775,7 @@ void CvIns::initialize_cv7()
 			// const uint16_t filter_decimation = filter_base_rate / filter_sample_rate;
 
 			// Scaled Gyro and Accel at a high rate
-			mip_descriptor_rate filter_data[10] = {
+			mip_descriptor_rate filter_data[12] = {
 				{ MIP_DATA_DESC_FILTER_POS_LLH, _config.sens_imu_update_rate_hz},
 				{ MIP_DATA_DESC_FILTER_ATT_QUATERNION,  _config.sens_imu_update_rate_hz},
 				{ MIP_DATA_DESC_FILTER_COMPENSATED_ANGULAR_RATE, _config.sens_imu_update_rate_hz},
@@ -728,12 +783,14 @@ void CvIns::initialize_cv7()
 				{ MIP_DATA_DESC_FILTER_VEL_NED, _config.sens_imu_update_rate_hz},
 				{ MIP_DATA_DESC_FILTER_LINEAR_ACCELERATION, _config.sens_other_update_rate_hz},
 				{ MIP_DATA_DESC_FILTER_FILTER_STATUS, _config.sens_status_update_rate_hz},
-				{ MIP_DATA_DESC_FILTER_POS_UNCERTAINTY, _config.sens_other_update_rate_hz},
+				{ MIP_DATA_DESC_FILTER_POS_UNCERTAINTY, _config.sens_imu_update_rate_hz},
+				{ MIP_DATA_DESC_FILTER_VEL_UNCERTAINTY, _config.sens_imu_update_rate_hz},
+				{ MIP_DATA_DESC_FILTER_ATT_UNCERTAINTY_EULER, _config.sens_imu_update_rate_hz},
 				{ MIP_DATA_DESC_SHARED_REFERENCE_TIME, _config.sens_imu_update_rate_hz},
 				{ MIP_DATA_DESC_FILTER_AID_MEAS_SUMMARY, _config.sens_status_update_rate_hz},
 			};
 
-			for (uint16_t i = 0; i < 10; i++) {
+			for (uint16_t i = 0; i < 12; i++) {
 				// Compute the desired decimation and update all of the sensors in this set
 				float sensor_decimation = static_cast<float>(filter_base_rate) / static_cast<float>(filter_data[i].decimation);
 
@@ -741,7 +798,7 @@ void CvIns::initialize_cv7()
 			}
 
 			// Write the settings
-			mip_cmd_result res = mip_3dm_write_message_format(&device, MIP_FILTER_DATA_DESC_SET, 10, filter_data);
+			mip_cmd_result res = mip_3dm_write_message_format(&device, MIP_FILTER_DATA_DESC_SET, 12, filter_data);
 
 			if (res != MIP_ACK_OK) {
 				PX4_ERR("ERROR: Could not set filter message format! Result of %d", res);
@@ -770,6 +827,10 @@ void CvIns::initialize_cv7()
 							      MIP_DATA_DESC_SHARED_REFERENCE_TIME, &cb_ref_timestamp, this);
 			mip_interface_register_field_callback(&device, &filter_data_handlers[9], MIP_FILTER_DATA_DESC_SET,
 							      MIP_DATA_DESC_FILTER_AID_MEAS_SUMMARY, &cb_filter_meas_status, this);
+			mip_interface_register_field_callback(&device, &filter_data_handlers[10], MIP_FILTER_DATA_DESC_SET,
+								MIP_DATA_DESC_FILTER_VEL_UNCERTAINTY, &cb_filter_vel_uncertainty, this);
+			mip_interface_register_field_callback(&device, &filter_data_handlers[11], MIP_FILTER_DATA_DESC_SET,
+								MIP_DATA_DESC_FILTER_ATT_UNCERTAINTY_EULER, &cb_filter_atte_uncertainty, this);
 
 			if(mip_filter_write_aiding_measurement_enable(&device, MIP_FILTER_AIDING_MEASUREMENT_ENABLE_COMMAND_AIDING_SOURCE_MAGNETOMETER, true) != MIP_ACK_OK)
 			PX4_ERR("ERROR: Could not set filter aiding measurement enable!");
