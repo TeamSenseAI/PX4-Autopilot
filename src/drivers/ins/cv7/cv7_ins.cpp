@@ -819,8 +819,6 @@ void CvIns::initialize_cv7()
 							      MIP_DATA_DESC_FILTER_LINEAR_ACCELERATION, &cb_filter_lin_accel, this);
 			mip_interface_register_field_callback(&device, &filter_data_handlers[6], MIP_FILTER_DATA_DESC_SET,
 							      MIP_DATA_DESC_FILTER_FILTER_STATUS, &cb_filter_status, this);
-			// mip_interface_register_field_callback(&device, &filter_data_handlers[7], MIP_FILTER_DATA_DESC_SET,
-			// 				      MIP_DATA_DESC_FILTER_FILTER_TIMESTAMP, &cb_filter_timestamp, this);
 			mip_interface_register_field_callback(&device, &filter_data_handlers[7], MIP_FILTER_DATA_DESC_SET,
 							      MIP_DATA_DESC_FILTER_POS_UNCERTAINTY, &cb_filter_pos_uncertainty, this);
 			mip_interface_register_field_callback(&device, &filter_data_handlers[8], MIP_SHARED_DATA_DESC_SET,
