@@ -231,7 +231,7 @@ void LogWriter::thread_start()
 	param.sched_priority = SCHED_PRIORITY_LOG_WRITER - 1;
 	(void)pthread_attr_setschedparam(&loop_attr, &param);
 
-	pthread_attr_setstacksize(&loop_attr, 1200);
+	pthread_attr_setstacksize(&loop_attr, 6000);
 	pthread_create(&_thread, &loop_attr, LogWriter::trampoline, (void *)this);
 
 	pthread_setname_np(_thread, "CV7 Log");
