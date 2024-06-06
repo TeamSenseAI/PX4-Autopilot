@@ -836,11 +836,21 @@ void CvIns::initialize_cv7()
 			if(mip_filter_write_aiding_measurement_enable(&device, MIP_FILTER_AIDING_MEASUREMENT_ENABLE_COMMAND_AIDING_SOURCE_GNSS_POS_VEL, true) != MIP_ACK_OK)
 				PX4_ERR("ERROR: Could not set filter aiding measurement enable!");
 
+
+			#ifdef LOG_TRANSACTIONS
+			// Only when logging the MIP data, enable factory streaming support
+			// This will echo commands to the device and provide necessary information
+			// for replay using the factory utilities
+			if(mip_3dm_factory_streaming(&device,MIP_3DM_FACTORY_STREAMING_COMMAND_ACTION_MERGE,0x00)!= MIP_ACK_OK)
+				PX4_ERR("ERROR: Could not enable factory streaming");
+			#endif
+
 			float filter_init_pos[3] = {0};
 			float filter_init_vel[3] = {0};
 
+			// Config for Position, Velocity and Attitude, use kinematic alignment for initialization
 			if(mip_filter_write_initialization_configuration(&device, 0, MIP_FILTER_INITIALIZATION_CONFIGURATION_COMMAND_INITIAL_CONDITION_SOURCE_AUTO_POS_VEL_ATT,
-			MIP_FILTER_INITIALIZATION_CONFIGURATION_COMMAND_ALIGNMENT_SELECTOR_MAGNETOMETER,
+			MIP_FILTER_INITIALIZATION_CONFIGURATION_COMMAND_ALIGNMENT_SELECTOR_KINEMATIC,
 			0.0, 0.0, 0.0, filter_init_pos, filter_init_vel, MIP_FILTER_REFERENCE_FRAME_LLH) != MIP_ACK_OK)
 				PX4_ERR("ERROR: Could not set filter initialization configuration!");
 
