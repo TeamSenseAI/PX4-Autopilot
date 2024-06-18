@@ -247,6 +247,7 @@ private:
 		(ParamInt<px4::params::IMU_GYRO_RATEMAX>) _param_imu_gyro_ratemax,
 		(ParamInt<px4::params::CV7_SCHEDULE>) _param_cv7_schedule,
 		(ParamInt<px4::params::CV7_DELAY>) _param_cv7_delay,
-		(ParamInt<px4::params::CV7_UPDATE_RATE>) _param_cv7_update_rate
+		(ParamInt<px4::params::CV7_UPDATE_RATE>) _param_cv7_update_rate,
+		(ParamInt<px4::params::CV7_ALIGNMENT>) _param_cv7_alignment
 	)
 };

@@ -25,3 +25,11 @@ parameters:
                     Select the update rate at 250, 500, 1000
             type: int32
             default: 500
+
+        CV7_ALIGNMENT:
+            description:
+                short: Alignment type
+                long: |
+                    Select the source of alignment. 0 = Magnetic 1 = Kinematic
+            type: int32
+            default: 0

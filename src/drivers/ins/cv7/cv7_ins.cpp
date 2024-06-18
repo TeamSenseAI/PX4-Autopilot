@@ -850,7 +850,7 @@ void CvIns::initialize_cv7()
 
 			// Config for Position, Velocity and Attitude, use kinematic alignment for initialization
 			if(mip_filter_write_initialization_configuration(&device, 0, MIP_FILTER_INITIALIZATION_CONFIGURATION_COMMAND_INITIAL_CONDITION_SOURCE_AUTO_POS_VEL_ATT,
-			MIP_FILTER_INITIALIZATION_CONFIGURATION_COMMAND_ALIGNMENT_SELECTOR_KINEMATIC,
+			(_param_cv7_alignment.get()==0) ? MIP_FILTER_INITIALIZATION_CONFIGURATION_COMMAND_ALIGNMENT_SELECTOR_MAGNETOMETER : MIP_FILTER_INITIALIZATION_CONFIGURATION_COMMAND_ALIGNMENT_SELECTOR_KINEMATIC,
 			0.0, 0.0, 0.0, filter_init_pos, filter_init_vel, MIP_FILTER_REFERENCE_FRAME_LLH) != MIP_ACK_OK)
 				PX4_ERR("ERROR: Could not set filter initialization configuration!");
 
