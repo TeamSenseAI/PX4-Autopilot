@@ -1085,8 +1085,12 @@ int CvIns::print_status()
 	PX4_INFO_RAW("Logged RX %llu\n", _logger.logged_bytes[1]);
 	PX4_INFO_RAW("Overflow TX Counts %llu\n", _logger.buffer_full[0]);
 	PX4_INFO_RAW("Overflow RX Counts %llu\n", _logger.buffer_full[1]);
+	PX4_INFO_RAW("High Watermark TX %llu\n", _logger.buffer_high_watermark[0]);
+	PX4_INFO_RAW("High Watermark RX %llu\n", _logger.buffer_high_watermark[1]);
 	_logger.logged_bytes[0] = 0;
 	_logger.logged_bytes[1] = 0;
+	_logger.buffer_high_watermark[0] = 0;
+	_logger.buffer_high_watermark[1] = 0;
 	_logger.buffer_full[0] = 0;
 	_logger.buffer_full[1] = 0;
 	#endif

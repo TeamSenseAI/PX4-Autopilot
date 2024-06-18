@@ -13,7 +13,7 @@
 #include <string.h>
 
 
-#define BUFFER_SIZE 2048
+#define BUFFER_SIZE 1024
 #define MAX_WRITE_CHUNK 256
 
 using namespace time_literals;
@@ -25,9 +25,10 @@ private:
 	pthread_t _thread{0};      ///< worker task id
 	px4::atomic_bool _thread_should_exit{false};
 	RingBufCPP<uint8_t, BUFFER_SIZE> _tx_buf;
-	RingBufCPP<uint8_t, BUFFER_SIZE> _rx_buf;
+	RingBufCPP<uint8_t, BUFFER_SIZE*5> _rx_buf;
 	public: uint64_t logged_bytes[2] {0};
 	public: uint64_t buffer_full[2] {0};
+	public: uint64_t buffer_high_watermark[2] {0};
 	px4_sem_t _sem_data;
 	pthread_mutex_t	_mutex = PTHREAD_MUTEX_INITIALIZER;
 	char _file_name[24];
@@ -102,7 +103,7 @@ private:
 		int ret = px4_sem_trywait(&_sem_data);
 
 		if (ret != 0) {
-			usleep(1_ms);
+			usleep(500_us);
 		}
 	}
 
@@ -191,7 +192,7 @@ public:
 			buffer_full[0] += _tx_buf.isFull();
 			_tx_buf.add(buffer[i], true);
 		}
-
+		buffer_high_watermark[0] = math::max<uint64_t>(buffer_high_watermark[0],_tx_buf.numElements());
 		px4_sem_post(&_sem_data);
 	}
 	void enqueue_rx(uint8_t *buffer, size_t len)
@@ -203,7 +204,7 @@ public:
 			buffer_full[1] += _rx_buf.isFull();
 			_rx_buf.add(buffer[i], true);
 		}
-
+		buffer_high_watermark[1] = math::max<uint64_t>(buffer_high_watermark[1],_rx_buf.numElements());
 		px4_sem_post(&_sem_data);
 	}
 };
