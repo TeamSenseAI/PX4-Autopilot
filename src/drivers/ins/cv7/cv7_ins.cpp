@@ -914,7 +914,7 @@ void CvIns::service_cv7()
 			break;
 		}
 
-		#define deg_conv(x) (double((x*1.f) / 10000000.f))
+		#define deg_conv(x) (double((x*1.0) / 10000000.0))
 
 		// If the timestamp has not been set, then don't send any data
 		// into the cv7 filter
@@ -930,7 +930,7 @@ void CvIns::service_cv7()
 
 		// float llh_uncertainty[3] = {gps.eph,gps.eph,gps.eph}; // What is the uncertainty?
 		float llh_uncertainty[3] = {1.0, 1.0, 1.0};
-		mip_aiding_llh_pos(&device,&t,MIP_FILTER_REFERENCE_FRAME_LLH,deg_conv(gps.lat), deg_conv(gps.lon), ((gps.alt_ellipsoid*1.f)/1000.f),llh_uncertainty, MIP_AIDING_LLH_POS_COMMAND_VALID_FLAGS_ALL);
+		mip_aiding_llh_pos(&device,&t,MIP_FILTER_REFERENCE_FRAME_LLH,deg_conv(gps.lat), deg_conv(gps.lon), ((gps.alt_ellipsoid*1.0)/1000.0),llh_uncertainty, MIP_AIDING_LLH_POS_COMMAND_VALID_FLAGS_ALL);
 
 		if(gps.vel_ned_valid){
 			float ned_v[3] = {gps.vel_n_m_s,gps.vel_e_m_s,gps.vel_d_m_s};
