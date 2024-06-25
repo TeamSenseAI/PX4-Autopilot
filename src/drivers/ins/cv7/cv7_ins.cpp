@@ -666,6 +666,8 @@ void CvIns::initialize_cv7()
 		return;
 	}
 
+// Disable the reset of the device
+#if 0
 	PX4_INFO("Setting to default device settings");
 
 	//Load the device default settings (so the device is in a known state)
@@ -680,7 +682,7 @@ void CvIns::initialize_cv7()
 		PX4_ERR("ERROR: Could not reconnect at expected baud!");
 		return;
 	}
-
+#endif
 	PX4_INFO("Setting the baud to desired baud rate");
 
 	usleep(500_ms);

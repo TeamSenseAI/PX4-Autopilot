@@ -25,7 +25,7 @@ private:
 	pthread_t _thread{0};      ///< worker task id
 	px4::atomic_bool _thread_should_exit{false};
 	RingBufCPP<uint8_t, BUFFER_SIZE> _tx_buf;
-	RingBufCPP<uint8_t, BUFFER_SIZE*5> _rx_buf;
+	RingBufCPP<uint8_t, BUFFER_SIZE*8> _rx_buf;
 	public: uint64_t logged_bytes[2] {0};
 	public: uint64_t buffer_full[2] {0};
 	public: uint64_t buffer_high_watermark[2] {0};
