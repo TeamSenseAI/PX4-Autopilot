@@ -759,106 +759,106 @@ void CvIns::initialize_cv7()
 		float translation[3] = {0.,0.,0.};
 		mip_aiding_write_frame_config(&device,gnss_antenna_sensor_id,MIP_AIDING_FRAME_CONFIG_COMMAND_FORMAT_EULER,false,translation,&rotation);
 
+
+		// Get the base rate
+		uint16_t filter_base_rate;
+
+		if (mip_3dm_get_base_rate(&device, MIP_FILTER_DATA_DESC_SET, &filter_base_rate) != MIP_ACK_OK) {
+			PX4_ERR("ERROR: Could not get sensor base rate format!");
+			return;
+		}
+
+		PX4_INFO("The CV7 base rate is %d", filter_base_rate);
+
+		// const uint16_t filter_sample_rate = _config.sens_imu_update_rate_hz; // Hz
+		// const uint16_t filter_decimation = filter_base_rate / filter_sample_rate;
+
+		// Scaled Gyro and Accel at a high rate
+		mip_descriptor_rate filter_data[12] = {
+			{ MIP_DATA_DESC_FILTER_POS_LLH, _config.sens_imu_update_rate_hz},
+			{ MIP_DATA_DESC_FILTER_ATT_QUATERNION,  _config.sens_imu_update_rate_hz},
+			{ MIP_DATA_DESC_FILTER_COMPENSATED_ANGULAR_RATE, _config.sens_imu_update_rate_hz},
+			{ MIP_DATA_DESC_FILTER_REL_POS_NED, _config.sens_imu_update_rate_hz},
+			{ MIP_DATA_DESC_FILTER_VEL_NED, _config.sens_imu_update_rate_hz},
+			{ MIP_DATA_DESC_FILTER_LINEAR_ACCELERATION, _config.sens_other_update_rate_hz},
+			{ MIP_DATA_DESC_FILTER_FILTER_STATUS, _config.sens_status_update_rate_hz},
+			{ MIP_DATA_DESC_FILTER_POS_UNCERTAINTY, _config.sens_imu_update_rate_hz},
+			{ MIP_DATA_DESC_FILTER_VEL_UNCERTAINTY, _config.sens_imu_update_rate_hz},
+			{ MIP_DATA_DESC_FILTER_ATT_UNCERTAINTY_EULER, _config.sens_imu_update_rate_hz},
+			{ MIP_DATA_DESC_SHARED_REFERENCE_TIME, _config.sens_imu_update_rate_hz},
+			{ MIP_DATA_DESC_FILTER_AID_MEAS_SUMMARY, _config.sens_status_update_rate_hz},
+		};
+
+		for (uint16_t i = 0; i < 12; i++) {
+			// Compute the desired decimation and update all of the sensors in this set
+			float sensor_decimation = static_cast<float>(filter_base_rate) / static_cast<float>(filter_data[i].decimation);
+
+			filter_data[i].decimation = static_cast<uint16_t>(sensor_decimation);
+		}
+
+		// Write the settings
+		mip_cmd_result res = mip_3dm_write_message_format(&device, MIP_FILTER_DATA_DESC_SET, 12, filter_data);
+
+		if (res != MIP_ACK_OK) {
+			PX4_ERR("ERROR: Could not set filter message format! Result of %d", res);
+			return;
+		}
+
+		mip_interface_register_field_callback(&device, &filter_data_handlers[0], MIP_FILTER_DATA_DESC_SET,
+							MIP_DATA_DESC_FILTER_POS_LLH, &cb_filter_llh, this);
+		mip_interface_register_field_callback(&device, &filter_data_handlers[1], MIP_FILTER_DATA_DESC_SET,
+							MIP_DATA_DESC_FILTER_ATT_QUATERNION, &cb_filter_atq, this);
+		mip_interface_register_field_callback(&device, &filter_data_handlers[2], MIP_FILTER_DATA_DESC_SET,
+							MIP_DATA_DESC_FILTER_COMPENSATED_ANGULAR_RATE, &cb_filter_ang_rate, this);
+		mip_interface_register_field_callback(&device, &filter_data_handlers[3], MIP_FILTER_DATA_DESC_SET,
+							MIP_DATA_DESC_FILTER_REL_POS_NED, &cb_filter_rel_pos, this);
+		mip_interface_register_field_callback(&device, &filter_data_handlers[4], MIP_FILTER_DATA_DESC_SET,
+							MIP_DATA_DESC_FILTER_VEL_NED, &cb_filter_vel_ned, this);
+		mip_interface_register_field_callback(&device, &filter_data_handlers[5], MIP_FILTER_DATA_DESC_SET,
+							MIP_DATA_DESC_FILTER_LINEAR_ACCELERATION, &cb_filter_lin_accel, this);
+		mip_interface_register_field_callback(&device, &filter_data_handlers[6], MIP_FILTER_DATA_DESC_SET,
+							MIP_DATA_DESC_FILTER_FILTER_STATUS, &cb_filter_status, this);
+		mip_interface_register_field_callback(&device, &filter_data_handlers[7], MIP_FILTER_DATA_DESC_SET,
+							MIP_DATA_DESC_FILTER_POS_UNCERTAINTY, &cb_filter_pos_uncertainty, this);
+		mip_interface_register_field_callback(&device, &filter_data_handlers[8], MIP_SHARED_DATA_DESC_SET,
+							MIP_DATA_DESC_SHARED_REFERENCE_TIME, &cb_ref_timestamp, this);
+		mip_interface_register_field_callback(&device, &filter_data_handlers[9], MIP_FILTER_DATA_DESC_SET,
+							MIP_DATA_DESC_FILTER_AID_MEAS_SUMMARY, &cb_filter_meas_status, this);
+		mip_interface_register_field_callback(&device, &filter_data_handlers[10], MIP_FILTER_DATA_DESC_SET,
+							MIP_DATA_DESC_FILTER_VEL_UNCERTAINTY, &cb_filter_vel_uncertainty, this);
+		mip_interface_register_field_callback(&device, &filter_data_handlers[11], MIP_FILTER_DATA_DESC_SET,
+							MIP_DATA_DESC_FILTER_ATT_UNCERTAINTY_EULER, &cb_filter_atte_uncertainty, this);
+
 		if(mip_filter_write_aiding_measurement_enable(&device, MIP_FILTER_AIDING_MEASUREMENT_ENABLE_COMMAND_AIDING_SOURCE_MAGNETOMETER, true) != MIP_ACK_OK)
-        		PX4_ERR("Could not set filter aiding measurement enable!");
-
-		{
-			// Get the base rate
-			uint16_t filter_base_rate;
-
-			if (mip_3dm_get_base_rate(&device, MIP_FILTER_DATA_DESC_SET, &filter_base_rate) != MIP_ACK_OK) {
-				PX4_ERR("ERROR: Could not get sensor base rate format!");
-				return;
-			}
-
-			PX4_INFO("The CV7 base rate is %d", filter_base_rate);
-
-			// const uint16_t filter_sample_rate = _config.sens_imu_update_rate_hz; // Hz
-			// const uint16_t filter_decimation = filter_base_rate / filter_sample_rate;
-
-			// Scaled Gyro and Accel at a high rate
-			mip_descriptor_rate filter_data[12] = {
-				{ MIP_DATA_DESC_FILTER_POS_LLH, _config.sens_imu_update_rate_hz},
-				{ MIP_DATA_DESC_FILTER_ATT_QUATERNION,  _config.sens_imu_update_rate_hz},
-				{ MIP_DATA_DESC_FILTER_COMPENSATED_ANGULAR_RATE, _config.sens_imu_update_rate_hz},
-				{ MIP_DATA_DESC_FILTER_REL_POS_NED, _config.sens_imu_update_rate_hz},
-				{ MIP_DATA_DESC_FILTER_VEL_NED, _config.sens_imu_update_rate_hz},
-				{ MIP_DATA_DESC_FILTER_LINEAR_ACCELERATION, _config.sens_other_update_rate_hz},
-				{ MIP_DATA_DESC_FILTER_FILTER_STATUS, _config.sens_status_update_rate_hz},
-				{ MIP_DATA_DESC_FILTER_POS_UNCERTAINTY, _config.sens_imu_update_rate_hz},
-				{ MIP_DATA_DESC_FILTER_VEL_UNCERTAINTY, _config.sens_imu_update_rate_hz},
-				{ MIP_DATA_DESC_FILTER_ATT_UNCERTAINTY_EULER, _config.sens_imu_update_rate_hz},
-				{ MIP_DATA_DESC_SHARED_REFERENCE_TIME, _config.sens_imu_update_rate_hz},
-				{ MIP_DATA_DESC_FILTER_AID_MEAS_SUMMARY, _config.sens_status_update_rate_hz},
-			};
-
-			for (uint16_t i = 0; i < 12; i++) {
-				// Compute the desired decimation and update all of the sensors in this set
-				float sensor_decimation = static_cast<float>(filter_base_rate) / static_cast<float>(filter_data[i].decimation);
-
-				filter_data[i].decimation = static_cast<uint16_t>(sensor_decimation);
-			}
-
-			// Write the settings
-			mip_cmd_result res = mip_3dm_write_message_format(&device, MIP_FILTER_DATA_DESC_SET, 12, filter_data);
-
-			if (res != MIP_ACK_OK) {
-				PX4_ERR("ERROR: Could not set filter message format! Result of %d", res);
-				return;
-			}
-
-			mip_interface_register_field_callback(&device, &filter_data_handlers[0], MIP_FILTER_DATA_DESC_SET,
-							      MIP_DATA_DESC_FILTER_POS_LLH, &cb_filter_llh, this);
-			mip_interface_register_field_callback(&device, &filter_data_handlers[1], MIP_FILTER_DATA_DESC_SET,
-							      MIP_DATA_DESC_FILTER_ATT_QUATERNION, &cb_filter_atq, this);
-			mip_interface_register_field_callback(&device, &filter_data_handlers[2], MIP_FILTER_DATA_DESC_SET,
-							      MIP_DATA_DESC_FILTER_COMPENSATED_ANGULAR_RATE, &cb_filter_ang_rate, this);
-			mip_interface_register_field_callback(&device, &filter_data_handlers[3], MIP_FILTER_DATA_DESC_SET,
-							      MIP_DATA_DESC_FILTER_REL_POS_NED, &cb_filter_rel_pos, this);
-			mip_interface_register_field_callback(&device, &filter_data_handlers[4], MIP_FILTER_DATA_DESC_SET,
-							      MIP_DATA_DESC_FILTER_VEL_NED, &cb_filter_vel_ned, this);
-			mip_interface_register_field_callback(&device, &filter_data_handlers[5], MIP_FILTER_DATA_DESC_SET,
-							      MIP_DATA_DESC_FILTER_LINEAR_ACCELERATION, &cb_filter_lin_accel, this);
-			mip_interface_register_field_callback(&device, &filter_data_handlers[6], MIP_FILTER_DATA_DESC_SET,
-							      MIP_DATA_DESC_FILTER_FILTER_STATUS, &cb_filter_status, this);
-			mip_interface_register_field_callback(&device, &filter_data_handlers[7], MIP_FILTER_DATA_DESC_SET,
-							      MIP_DATA_DESC_FILTER_POS_UNCERTAINTY, &cb_filter_pos_uncertainty, this);
-			mip_interface_register_field_callback(&device, &filter_data_handlers[8], MIP_SHARED_DATA_DESC_SET,
-							      MIP_DATA_DESC_SHARED_REFERENCE_TIME, &cb_ref_timestamp, this);
-			mip_interface_register_field_callback(&device, &filter_data_handlers[9], MIP_FILTER_DATA_DESC_SET,
-							      MIP_DATA_DESC_FILTER_AID_MEAS_SUMMARY, &cb_filter_meas_status, this);
-			mip_interface_register_field_callback(&device, &filter_data_handlers[10], MIP_FILTER_DATA_DESC_SET,
-								MIP_DATA_DESC_FILTER_VEL_UNCERTAINTY, &cb_filter_vel_uncertainty, this);
-			mip_interface_register_field_callback(&device, &filter_data_handlers[11], MIP_FILTER_DATA_DESC_SET,
-								MIP_DATA_DESC_FILTER_ATT_UNCERTAINTY_EULER, &cb_filter_atte_uncertainty, this);
-
-			if(mip_filter_write_aiding_measurement_enable(&device, MIP_FILTER_AIDING_MEASUREMENT_ENABLE_COMMAND_AIDING_SOURCE_MAGNETOMETER, true) != MIP_ACK_OK)
 			PX4_ERR("ERROR: Could not set filter aiding measurement enable!");
 
-			if(mip_filter_write_aiding_measurement_enable(&device, MIP_FILTER_AIDING_MEASUREMENT_ENABLE_COMMAND_AIDING_SOURCE_GNSS_POS_VEL, true) != MIP_ACK_OK)
-				PX4_ERR("ERROR: Could not set filter aiding measurement enable!");
+		if(mip_filter_write_aiding_measurement_enable(&device, MIP_FILTER_AIDING_MEASUREMENT_ENABLE_COMMAND_AIDING_SOURCE_GNSS_POS_VEL, true) != MIP_ACK_OK)
+			PX4_ERR("ERROR: Could not set filter aiding measurement enable!");
 
 
-			#ifdef LOG_TRANSACTIONS
-			// Only when logging the MIP data, enable factory streaming support
-			// This will echo commands to the device and provide necessary information
-			// for replay using the factory utilities
-			if(mip_3dm_factory_streaming(&device,MIP_3DM_FACTORY_STREAMING_COMMAND_ACTION_MERGE,0x00)!= MIP_ACK_OK)
-				PX4_ERR("ERROR: Could not enable factory streaming");
-			#endif
+		#ifdef LOG_TRANSACTIONS
+		// Only when logging the MIP data, enable factory streaming support
+		// This will echo commands to the device and provide necessary information
+		// for replay using the factory utilities
+		if(mip_3dm_factory_streaming(&device,MIP_3DM_FACTORY_STREAMING_COMMAND_ACTION_MERGE,0x00)!= MIP_ACK_OK)
+			PX4_ERR("ERROR: Could not enable factory streaming");
+		#endif
 
-			float filter_init_pos[3] = {0};
-			float filter_init_vel[3] = {0};
+		// Reset the filter, then set the initial conditions
+		if(mip_filter_reset(&device) != MIP_ACK_OK)
+			PX4_ERR("ERROR: Could not reset the filter!");
 
-			// Config for Position, Velocity and Attitude, use kinematic alignment for initialization
-			if(mip_filter_write_initialization_configuration(&device, 0, MIP_FILTER_INITIALIZATION_CONFIGURATION_COMMAND_INITIAL_CONDITION_SOURCE_AUTO_POS_VEL_ATT,
-			(_param_cv7_alignment.get()==0) ? MIP_FILTER_INITIALIZATION_CONFIGURATION_COMMAND_ALIGNMENT_SELECTOR_MAGNETOMETER : MIP_FILTER_INITIALIZATION_CONFIGURATION_COMMAND_ALIGNMENT_SELECTOR_KINEMATIC,
-			0.0, 0.0, 0.0, filter_init_pos, filter_init_vel, MIP_FILTER_REFERENCE_FRAME_LLH) != MIP_ACK_OK)
-				PX4_ERR("ERROR: Could not set filter initialization configuration!");
 
-			if(mip_filter_reset(&device) != MIP_ACK_OK)
-				PX4_ERR("ERROR: Could not reset the filter!");
-		}
+		float filter_init_pos[3] = {0};
+		float filter_init_vel[3] = {0};
+
+		// Config for Position, Velocity and Attitude, use kinematic alignment for initialization
+		if(mip_filter_write_initialization_configuration(&device, 0, MIP_FILTER_INITIALIZATION_CONFIGURATION_COMMAND_INITIAL_CONDITION_SOURCE_AUTO_POS_VEL_ATT,
+		(_param_cv7_alignment.get()==0) ? MIP_FILTER_INITIALIZATION_CONFIGURATION_COMMAND_ALIGNMENT_SELECTOR_MAGNETOMETER : MIP_FILTER_INITIALIZATION_CONFIGURATION_COMMAND_ALIGNMENT_SELECTOR_KINEMATIC,
+		0.0, 0.0, 0.0, filter_init_pos, filter_init_vel, MIP_FILTER_REFERENCE_FRAME_LLH) != MIP_ACK_OK)
+			PX4_ERR("ERROR: Could not set filter initialization configuration!");
+
+
 	}
 		break;
 
@@ -1096,6 +1096,32 @@ int CvIns::print_status()
 	_logger.buffer_full[0] = 0;
 	_logger.buffer_full[1] = 0;
 	#endif
+	if(_f_status.sample.filter_state == 4){
+		PX4_INFO_RAW("Filter State FULL NAV\n");
+	}
+	if(_f_status.sample.filter_state == 3){
+		PX4_INFO_RAW("Filter State AHRS\n");
+	}
+	if(_f_status.sample.filter_state == 2){
+		PX4_INFO_RAW("Filter State VERT_GYRO\n");
+	}
+	if(_f_status.sample.filter_state == 1){
+		PX4_INFO_RAW("Filter State INIT\n");
+	}
+	if(_f_status.sample.filter_state == 0){
+		PX4_INFO_RAW("Filter State UNKNOWN\n");
+	}
+	// Mask the lower three bits
+	uint8_t filt_status = _f_status.sample.status_flags & 0x0003;
+	if(filt_status == 0x01){
+		PX4_INFO_RAW("Filter Status STABLE\n");
+	} else if(filt_status == 0x02){
+		PX4_INFO_RAW("Filter Status CONVERGING\n");
+	} else if(filt_status == 0x03){
+		PX4_INFO_RAW("Filter Status UNSTABLE/RECOVERING\n");
+	} else {
+		PX4_INFO_RAW("Filter Status UNKNOWN\n");
+	}
 
 	perf_print_counter(_loop_perf);
 	perf_print_counter(_loop_interval_perf);
