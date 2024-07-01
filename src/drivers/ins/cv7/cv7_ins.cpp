@@ -46,6 +46,8 @@ uint8_t vehicle_frame_velocity_sensor_id = 3;
 
 static CvIns *cv7_ins{nullptr};
 
+// Temporary bugfix, CV7 is reporting SWU in relative position, not NED (as expected)
+#define CONVERT_SWU_TO_NED
 
 ModalIoSerial device_uart;
 
@@ -188,6 +190,11 @@ void CvIns::cb_filter_timestamp(void *user, const mip_field *field, timestamp_ty
 			vp.x = ref->_f_rel_pos.sample.relative_position[0];
 			vp.y = ref->_f_rel_pos.sample.relative_position[1];
 			vp.z = ref->_f_rel_pos.sample.relative_position[2];
+			#ifdef CONVERT_SWU_TO_NED
+			vp.x = vp.x * -1.f;
+			vp.y = vp.y * -1.f;
+			vp.z = vp.z * -1.f;
+			#endif
 
 			vp.vx = ref->_f_vel_ned.sample.north;
 			vp.vy = ref->_f_vel_ned.sample.east;
@@ -209,6 +216,12 @@ void CvIns::cb_filter_timestamp(void *user, const mip_field *field, timestamp_ty
 				vo.position[0] = ref->_f_rel_pos.sample.relative_position[0];
 				vo.position[1] = ref->_f_rel_pos.sample.relative_position[1];
 				vo.position[2] = ref->_f_rel_pos.sample.relative_position[2];
+				#ifdef CONVERT_SWU_TO_NED
+				for (size_t i = 0; i < 3; i++)
+				{
+					vo.position[i] = vo.position[i] * -1.f;
+				}
+				#endif
 
 				vo.velocity[0] = ref->_f_vel_ned.sample.north;
 				vo.velocity[1] = ref->_f_vel_ned.sample.east;
@@ -1112,6 +1125,7 @@ int CvIns::print_status()
 		PX4_INFO_RAW("Filter State UNKNOWN\n");
 	}
 	// Mask the lower three bits
+	PX4_INFO_RAW("Filter Status 0x%X\n",_f_status.sample.status_flags);
 	uint8_t filt_status = _f_status.sample.status_flags & 0x0003;
 	if(filt_status == 0x01){
 		PX4_INFO_RAW("Filter Status STABLE\n");
