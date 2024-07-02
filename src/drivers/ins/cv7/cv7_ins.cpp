@@ -864,10 +864,19 @@ void CvIns::initialize_cv7()
 
 		float filter_init_pos[3] = {0};
 		float filter_init_vel[3] = {0};
-
+		uint8_t initial_alignment = MIP_FILTER_INITIALIZATION_CONFIGURATION_COMMAND_ALIGNMENT_SELECTOR_MAGNETOMETER;
+		if(_param_cv7_alignment.get() == 1){
+			initial_alignment = MIP_FILTER_INITIALIZATION_CONFIGURATION_COMMAND_ALIGNMENT_SELECTOR_KINEMATIC;
+		}
+		if(_param_cv7_alignment.get() == 2){
+			initial_alignment = MIP_FILTER_INITIALIZATION_CONFIGURATION_COMMAND_ALIGNMENT_SELECTOR_EXTERNAL;
+		}
+		if(_param_cv7_alignment.get() == 3){
+			initial_alignment = MIP_FILTER_INITIALIZATION_CONFIGURATION_COMMAND_ALIGNMENT_SELECTOR_DUAL_ANTENNA;
+		}
 		// Config for Position, Velocity and Attitude, use kinematic alignment for initialization
 		if(mip_filter_write_initialization_configuration(&device, 0, MIP_FILTER_INITIALIZATION_CONFIGURATION_COMMAND_INITIAL_CONDITION_SOURCE_AUTO_POS_VEL_ATT,
-		(_param_cv7_alignment.get()==0) ? MIP_FILTER_INITIALIZATION_CONFIGURATION_COMMAND_ALIGNMENT_SELECTOR_MAGNETOMETER : MIP_FILTER_INITIALIZATION_CONFIGURATION_COMMAND_ALIGNMENT_SELECTOR_KINEMATIC,
+		initial_alignment,
 		0.0, 0.0, 0.0, filter_init_pos, filter_init_vel, MIP_FILTER_REFERENCE_FRAME_LLH) != MIP_ACK_OK)
 			PX4_ERR("ERROR: Could not set filter initialization configuration!");
 
@@ -955,7 +964,8 @@ void CvIns::service_cv7()
 		}
 
 		if(PX4_ISFINITE(gps.heading)){
-			float heading = PX4_ISFINITE(gps.heading_offset) ? gps.heading + gps.heading_offset : gps.heading;
+			// float heading = PX4_ISFINITE(gps.heading_offset) ? gps.heading + gps.heading_offset : gps.heading;
+			float heading = gps.heading;
 			// There are no pre-defined flags for the heading (that I can find), setting everything to 1 for now
 			mip_aiding_true_heading(&device,&t,MIP_FILTER_REFERENCE_FRAME_LLH,heading,gps.heading_accuracy,0xff);
 		}

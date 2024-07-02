@@ -30,6 +30,6 @@ parameters:
             description:
                 short: Alignment type
                 long: |
-                    Select the source of alignment. 0 = Magnetic 1 = Kinematic
+                    Select the source of alignment. 0 = Magnetic 1 = Kinematic, 2 = External, 3 = Dual Antenna
             type: int32
             default: 0
