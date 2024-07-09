@@ -155,6 +155,8 @@ private:
 
 	void initialize_logger();
 
+	void apply_mag_cal();
+
 	enum cv7_mode {
 		mode_imu = 0,
 		mode_ahrs = 1,
@@ -250,4 +252,6 @@ private:
 		(ParamInt<px4::params::CV7_UPDATE_RATE>) _param_cv7_update_rate,
 		(ParamInt<px4::params::CV7_ALIGNMENT>) _param_cv7_alignment
 	)
+	template<typename T>
+	int param_load(uint32_t idx, const char * type, T & val);
 };

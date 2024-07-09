@@ -991,6 +991,120 @@ void CvIns::initialize_logger()
 	PX4_INFO("Created the Logger");
 }
 
+template<typename T>
+int CvIns::param_load(uint32_t idx, const char* type, T &val){
+	char str[20] {};
+	sprintf(str, "CAL_MAG%" PRIu32 "_%s", idx, type);
+	val = 0;
+
+	param_t param_handle = param_find_no_notification(str);
+
+	if (param_handle == PARAM_INVALID) {
+		return PX4_ERROR;
+	}
+
+	// find again and get value, but this time mark it active
+	if (param_get(param_find(str), &val) != OK) {
+		return PX4_ERROR;
+	}
+	return PX4_OK;
+}
+
+void CvIns::apply_mag_cal(){
+	static constexpr int MAX_SENSOR_COUNT = 4;
+	bool is_match = false;
+	uint32_t mag_idx = 0;
+
+	for (unsigned i = 0; i < MAX_SENSOR_COUNT; ++i) {
+
+		int32_t device_id_val = 0;
+		if(param_load<int32_t>(i,"ID",device_id_val) != PX4_OK){
+			continue;
+		}
+
+		is_match = ((uint32_t)device_id_val == _config.device_id);
+
+		if(is_match){
+			mag_idx = i;
+			break;
+		}
+	}
+
+	// There is no match so no calibrations to write
+	if(!is_match){
+		PX4_INFO("Mag Cal couldn't find matching ID");
+		return;
+	}
+
+	int32_t prio{0};
+
+	if(param_load<int32_t>(mag_idx,"PRIO",prio) != PX4_OK){
+		PX4_WARN("Mag Cal couldn't PRIO");
+		return;
+	}
+
+	if(prio <= 0){
+		PX4_INFO("Mag Cal for this device is disabled");
+		return;
+	}
+
+	float hard_iron_offset[3] = {0};
+	bool success = true;
+	success |= param_load<float>(mag_idx,"XOFF",hard_iron_offset[0]) == PX4_OK;
+	success |= param_load<float>(mag_idx,"YOFF",hard_iron_offset[1]) == PX4_OK;
+	success |= param_load<float>(mag_idx,"ZOFF",hard_iron_offset[2]) == PX4_OK;
+	// Failed getting the parameters, don't attempt to write anything
+	if(!success){
+		PX4_WARN("Mag Cal couldn't read hard iron offsets");
+		return;
+	}
+
+	if (mip_3dm_write_mag_hard_iron_offset(&device, hard_iron_offset) != MIP_ACK_OK) {
+		PX4_ERR("Mag Cal couldn't set the hard iron offset");
+		return;
+	}
+
+	// [X  D1  D2]
+	// [0  Y   D3]
+	// [0  0   Z ]
+	float soft_iron_matrix[9] = {0};
+	float xcomp{0};  // Power compensation
+	float ycomp{0};  // Power compensation
+	float zcomp{0};  // Power compensation
+	success |= param_load<float>(mag_idx,"XSCALE",soft_iron_matrix[0]) == PX4_OK;
+	success |= param_load<float>(mag_idx,"YSCALE",soft_iron_matrix[4]) == PX4_OK;
+	success |= param_load<float>(mag_idx,"ZSCALE",soft_iron_matrix[8]) == PX4_OK;
+	success |= param_load<float>(mag_idx,"XODIAG",soft_iron_matrix[1]) == PX4_OK;
+	success |= param_load<float>(mag_idx,"YODIAG",soft_iron_matrix[2]) == PX4_OK;
+	success |= param_load<float>(mag_idx,"ZODIAG",soft_iron_matrix[5]) == PX4_OK;
+
+	// TODO: How are the power compensation cal values used in the MIP SDK? I don't think they are
+	success |= param_load<float>(mag_idx,"XCOMP",xcomp) == PX4_OK;
+	success |= param_load<float>(mag_idx,"YCOMP",ycomp) == PX4_OK;
+	success |= param_load<float>(mag_idx,"ZCOMP",zcomp) == PX4_OK;
+
+	// Failed getting the parameters, don't attempt to write anything
+	if(!success){
+		PX4_WARN("Mag Cal couldn't read soft iron offsets");
+		return;
+	}
+
+	if (mip_3dm_write_mag_soft_iron_matrix(&device, soft_iron_matrix) != MIP_ACK_OK) {
+		PX4_ERR("Mag Cal couldn't set the soft iron offset");
+		return;
+	}
+
+	char str[20] {};
+	sprintf(str, "CAL_MAG%" PRIu32 "_PRIO", mag_idx);
+	int32_t prio_disable_val = 0;
+	if (param_set_no_notification(param_find(str), &prio_disable_val) != PX4_OK) {
+		PX4_ERR("Mag Cal failed to disable PX4 internal mag cal");
+		// TODO: Clear written values in the CV7?
+	}
+
+	PX4_INFO("Mag Cal finished writing calibrations");
+}
+
 void CvIns::Run()
 {
 	if (should_exit()) {
@@ -1023,6 +1137,8 @@ void CvIns::Run()
 		updateParams(); // update module parameters (in DEFINE_PARAMETERS)
 
 		_delay_offset = _param_cv7_delay.get();
+
+		apply_mag_cal();
 	}
 
 	service_cv7();
