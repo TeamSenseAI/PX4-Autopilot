@@ -1149,7 +1149,8 @@ void CvIns::Run()
 
 		_delay_offset = _param_cv7_delay.get();
 
-		apply_mag_cal();
+		// Disable this for now, work in progress
+		// apply_mag_cal();
 	}
 
 	service_cv7();
