@@ -318,9 +318,16 @@ void CvIns::cb_filter_timestamp(void *user, const mip_field *field, timestamp_ty
 		// TODO: for now we only fullfill components needed by the commander
 		estimator_status_s status;
 		status.timestamp = t;
-		status.control_mode_flags = 0;
-		status.filter_fault_flags = 0;
+		// Note: These flags require insight into the inner operations of the filter.
+		//       Below is a minimal mapping of error flags from CV7 to the PX4 health flags
+		// Filter State Mapping, if the filter is in 4, set merging GPS and Height being fused flags
+		// Only the gps flag is inspected in the checks
+		status.control_mode_flags = ref->_f_status.sample.filter_state == 4 ? (0x1 << CS_GPS) | (0x1 << CS_GPS_HGT) : 0x00;
+		// If there is a general filter condition, set a fault flag to trigger an issue
+		status.filter_fault_flags = (ref->_f_status.sample.status_flags & MIP_FILTER_STATUS_FLAGS_GQ7_FILTER_CONDITION) ? 0x1 : 0x00;
 		status.innovation_check_flags = 0;
+		status.gps_check_fail_flags = 0;
+
 		status.mag_test_ratio = 0.1f;
 		status.vel_test_ratio = 0.1f;
 		status.pos_test_ratio = 0.1f;
@@ -329,8 +336,8 @@ void CvIns::cb_filter_timestamp(void *user, const mip_field *field, timestamp_ty
 		status.hagl_test_ratio = 0.1f;
 		status.beta_test_ratio = 0.1f;
 
-		status.pos_horiz_accuracy = 0.1f;
-		status.pos_vert_accuracy = 0.1f;
+		status.pos_horiz_accuracy = sqrt(ref->_f_pos_uncertainty.sample.north*ref->_f_pos_uncertainty.sample.north + ref->_f_pos_uncertainty.sample.east*ref->_f_pos_uncertainty.sample.east);
+		status.pos_vert_accuracy = ref->_f_pos_uncertainty.sample.down;
 		status.solution_status_flags = 0;
 
 		status.time_slip = 0;
@@ -842,8 +849,12 @@ void CvIns::initialize_cv7()
 		mip_interface_register_field_callback(&device, &filter_data_handlers[11], MIP_FILTER_DATA_DESC_SET,
 							MIP_DATA_DESC_FILTER_ATT_UNCERTAINTY_EULER, &cb_filter_atte_uncertainty, this);
 
-		if(mip_filter_write_aiding_measurement_enable(&device, MIP_FILTER_AIDING_MEASUREMENT_ENABLE_COMMAND_AIDING_SOURCE_MAGNETOMETER, true) != MIP_ACK_OK)
-			PX4_ERR("ERROR: Could not set filter aiding measurement enable!");
+		// Selectively turn on the mag aiding source
+		if(_param_cv7_int_mag_en.get() == 1)
+		{
+			if(mip_filter_write_aiding_measurement_enable(&device, MIP_FILTER_AIDING_MEASUREMENT_ENABLE_COMMAND_AIDING_SOURCE_MAGNETOMETER, true) != MIP_ACK_OK)
+				PX4_ERR("ERROR: Could not set filter aiding measurement enable!");
+		}
 
 		if(mip_filter_write_aiding_measurement_enable(&device, MIP_FILTER_AIDING_MEASUREMENT_ENABLE_COMMAND_AIDING_SOURCE_GNSS_POS_VEL, true) != MIP_ACK_OK)
 			PX4_ERR("ERROR: Could not set filter aiding measurement enable!");

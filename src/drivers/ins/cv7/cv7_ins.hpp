@@ -250,7 +250,8 @@ private:
 		(ParamInt<px4::params::CV7_SCHEDULE>) _param_cv7_schedule,
 		(ParamInt<px4::params::CV7_DELAY>) _param_cv7_delay,
 		(ParamInt<px4::params::CV7_UPDATE_RATE>) _param_cv7_update_rate,
-		(ParamInt<px4::params::CV7_ALIGNMENT>) _param_cv7_alignment
+		(ParamInt<px4::params::CV7_ALIGNMENT>) _param_cv7_alignment,
+		(ParamInt<px4::params::CV7_INT_MAG_EN>) _param_cv7_int_mag_en
 	)
 	template<typename T>
 	int param_load(uint32_t idx, const char * type, T & val);

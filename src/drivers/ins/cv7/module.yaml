@@ -33,3 +33,11 @@ parameters:
                     Select the source of alignment. 0 = Magnetic 1 = Kinematic, 2 = External, 3 = Dual Antenna
             type: int32
             default: 0
+
+        CV7_INT_MAG_EN:
+            description:
+                short: Enable internal mag in CV7 filter
+                long: |
+                    Select the source of alignment. 0 = Disabled 1 = Enabled
+            type: int32
+            default: 1
