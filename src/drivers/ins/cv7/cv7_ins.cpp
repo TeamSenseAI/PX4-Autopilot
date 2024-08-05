@@ -776,7 +776,7 @@ void CvIns::initialize_cv7()
 		{
 			rotation.euler[i] = 0.0;
 		}
-		float translation[3] = {0.,0.,0.};
+		float translation[3] = { (float)_param_cv7_gps_x.get(), (float)_param_cv7_gps_y.get(), (float)_param_cv7_gps_z.get() };
 		mip_aiding_write_frame_config(&device,gnss_antenna_sensor_id,MIP_AIDING_FRAME_CONFIG_COMMAND_FORMAT_EULER,false,translation,&rotation);
 
 

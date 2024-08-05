@@ -41,3 +41,27 @@ parameters:
                     Select the source of alignment. 0 = Disabled 1 = Enabled
             type: int32
             default: 1
+
+        CV7_GPS_X:
+            description:
+                short: CV7 GPS lever arm x
+                long: |
+                    CV7 GPS lever arm x in meters
+            type: float
+            default: 0
+
+        CV7_GPS_Y:
+            description:
+                short: CV7 GPS lever arm y
+                long: |
+                    CV7 GPS lever arm y in meters
+            type: float
+            default: 0
+
+        CV7_GPS_Z:
+            description:
+                short: CV7 GPS lever arm z
+                long: |
+                    CV7 GPS lever arm z in meters
+            type: float
+            default: 0

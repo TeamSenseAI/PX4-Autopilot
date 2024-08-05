@@ -251,7 +251,10 @@ private:
 		(ParamInt<px4::params::CV7_DELAY>) _param_cv7_delay,
 		(ParamInt<px4::params::CV7_UPDATE_RATE>) _param_cv7_update_rate,
 		(ParamInt<px4::params::CV7_ALIGNMENT>) _param_cv7_alignment,
-		(ParamInt<px4::params::CV7_INT_MAG_EN>) _param_cv7_int_mag_en
+		(ParamInt<px4::params::CV7_INT_MAG_EN>) _param_cv7_int_mag_en,
+		(ParamFloat<px4::params::CV7_GPS_X>) _param_cv7_gps_x,
+		(ParamFloat<px4::params::CV7_GPS_Y>) _param_cv7_gps_y,
+		(ParamFloat<px4::params::CV7_GPS_Z>) _param_cv7_gps_z
 	)
 	template<typename T>
 	int param_load(uint32_t idx, const char * type, T & val);
