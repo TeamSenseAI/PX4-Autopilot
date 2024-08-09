@@ -204,11 +204,11 @@ private:
 	PX4Magnetometer _px4_mag{0};
 	sensor_baro_s _sensor_baro{0};
 
-	uORB::Publication<vehicle_local_position_s> _vehicle_local_position_pub{ORB_ID(external_ins_local_position)};
-	uORB::Publication<vehicle_angular_velocity_s> _vehicle_angular_velocity_pub{ORB_ID(external_ins_angular_velocity)};
-	uORB::Publication<vehicle_attitude_s> _vehicle_attitude_pub{ORB_ID(external_ins_attitude)};
-	uORB::Publication<vehicle_global_position_s> _global_position_pub{ORB_ID(external_ins_global_position)};
-	uORB::Publication<vehicle_odometry_s> _vehicle_odometry_pub{ORB_ID(external_ins_odometry)};
+	uORB::Publication<vehicle_local_position_s> _vehicle_local_position_pub{ORB_ID(vehicle_local_position)};
+	uORB::Publication<vehicle_angular_velocity_s> _vehicle_angular_velocity_pub{ORB_ID(vehicle_angular_velocity)};
+	uORB::Publication<vehicle_attitude_s> _vehicle_attitude_pub{ORB_ID(vehicle_attitude)};
+	uORB::Publication<vehicle_global_position_s> _global_position_pub{ORB_ID(vehicle_global_position)};
+	uORB::Publication<vehicle_odometry_s> _vehicle_odometry_pub{ORB_ID(vehicle_odometry)};
 	uORB::Publication<debug_array_s> _debug_array_pub{ORB_ID(debug_array)};
 
 	// Needed for health checks
