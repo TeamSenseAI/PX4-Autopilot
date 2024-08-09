@@ -1539,3 +1539,18 @@ PARAM_DEFINE_INT32(EKF2_SYNT_MAG_Z, 0);
  * @decimal 1
  */
 PARAM_DEFINE_FLOAT(EKF2_GSF_TAS, 15.0f);
+
+/**
+ * Disable the EKF2 from publishing outputs
+ *
+ * Used when an external INS is publishing data into the system and there is a desire
+ * to have the EKF2 run and generate its internal solutions under the topic names estimator_..
+ * but not publish into the vehicle_... topics. This will also disable the publication of
+ * the estimator selector which the external INS must publish with appropriate information.
+ * It is also required to set SYS_MC_EST_GROUP to 1 or 3. Setting to 2 will cause commander
+ * to inspect the EKF2 health status while flying on a different filter's output.
+ *
+ * @group EKF2
+ * @boolean
+*/
+PARAM_DEFINE_INT32(EKF2_NO_OUTPUT, 0);

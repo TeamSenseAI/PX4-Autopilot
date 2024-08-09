@@ -313,7 +313,7 @@ void CvIns::cb_filter_timestamp(void *user, const mip_field *field, timestamp_ty
 			ref->_f_aiding_summary.updated = false;
 		}
 
-#if 0
+#if 1
 		// Estimator Status
 		// TODO: for now we only fullfill components needed by the commander
 		estimator_status_s status;
@@ -322,7 +322,7 @@ void CvIns::cb_filter_timestamp(void *user, const mip_field *field, timestamp_ty
 		//       Below is a minimal mapping of error flags from CV7 to the PX4 health flags
 		// Filter State Mapping, if the filter is in 4, set merging GPS and Height being fused flags
 		// Only the gps flag is inspected in the checks
-		status.control_mode_flags = ref->_f_status.sample.filter_state == 4 ? (0x1 << CS_GPS) | (0x1 << CS_GPS_HGT) : 0x00;
+		status.control_mode_flags = ref->_f_status.sample.filter_state == 4 ? (0x1 << estimator_status_s::CS_GPS) | (0x1 << estimator_status_s::CS_GPS_HGT) : 0x00;
 		// If there is a general filter condition, set a fault flag to trigger an issue
 		status.filter_fault_flags = (ref->_f_status.sample.status_flags & MIP_FILTER_STATUS_FLAGS_GQ7_FILTER_CONDITION) ? 0x1 : 0x00;
 		status.innovation_check_flags = 0;
@@ -541,7 +541,7 @@ CvIns::CvIns(const char *uart_port, int32_t rot) :
 {
 	_uart_device = uart_port;
 	_config.rot = static_cast<Rotation>(rot);
-	// TODO: Figure out how to set to arbitrary rates, currently it limited based on decimation
+
 	// // Clamp rate to allowable ranges
 	_config.sens_imu_update_rate_hz = math::constrain<uint16_t>(_param_cv7_update_rate.get(),100,1000);
 

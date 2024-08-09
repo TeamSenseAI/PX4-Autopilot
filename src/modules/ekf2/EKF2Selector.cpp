@@ -115,7 +115,9 @@ bool EKF2Selector::SelectInstance(uint8_t ekf_instance)
 		sensor_selection.accel_device_id = _instance[ekf_instance].accel_device_id;
 		sensor_selection.gyro_device_id = _instance[ekf_instance].gyro_device_id;
 		sensor_selection.timestamp = hrt_absolute_time();
-		_sensor_selection_pub.publish(sensor_selection);
+		if(_param_ekf2_no_output.get() == 0){
+			_sensor_selection_pub.publish(sensor_selection);
+		}
 
 		if (_selected_instance != INVALID_INSTANCE) {
 			// switch callback registration
@@ -791,17 +793,22 @@ void EKF2Selector::Run()
 		    || (last_instance_change_prev != _last_instance_change)
 		    || _accel_fault_detected || _gyro_fault_detected) {
 
-			PublishEstimatorSelectorStatus();
+			if(_param_ekf2_no_output.get() == 0){
+				PublishEstimatorSelectorStatus();
+			}
+
 			_selector_status_publish = false;
 		}
 	}
 
-	// republish selected estimator data for system
-	PublishVehicleAttitude();
-	PublishVehicleLocalPosition();
-	PublishVehicleGlobalPosition();
-	PublishVehicleOdometry();
-	PublishWindEstimate();
+	if(_param_ekf2_no_output.get() == 0){
+		// republish selected estimator data for system
+		PublishVehicleAttitude();
+		PublishVehicleLocalPosition();
+		PublishVehicleGlobalPosition();
+		PublishVehicleOdometry();
+		PublishWindEstimate();
+	}
 
 	// re-schedule as backup timeout
 	ScheduleDelayed(FILTER_UPDATE_PERIOD);
