@@ -198,6 +198,7 @@ void LoggedTopics::add_default_topics()
 	add_topic("estimator_sensor_bias", 0);
 	add_topic("estimator_states", 50);
 	add_topic("estimator_status", 50);
+	add_topic("ekf_status", 50);
 	add_topic("estimator_status_flags", 0);
 	add_topic("yaw_estimator_status", 50);
 
@@ -215,6 +216,7 @@ void LoggedTopics::add_default_topics()
 	add_topic_multi("estimator_sensor_bias", 0, MAX_ESTIMATOR_INSTANCES);
 	add_topic_multi("estimator_states", 50, MAX_ESTIMATOR_INSTANCES);
 	add_topic_multi("estimator_status", 50, MAX_ESTIMATOR_INSTANCES);
+	add_topic_multi("ekf_status", 50, MAX_ESTIMATOR_INSTANCES);
 	add_topic_multi("estimator_status_flags", 0, MAX_ESTIMATOR_INSTANCES);
 	add_topic_multi("estimator_local_position", 50, MAX_ESTIMATOR_INSTANCES);
 	add_topic_multi("yaw_estimator_status", 50, MAX_ESTIMATOR_INSTANCES);
@@ -301,6 +303,7 @@ void LoggedTopics::add_default_topics()
 	add_topic("estimator_sensor_bias");
 	add_topic("estimator_states");
 	add_topic("estimator_status");
+	add_topic("ekf_status");
 	add_topic("estimator_status_flags");
 	add_topic("vehicle_attitude");
 	add_topic("vehicle_global_position");
