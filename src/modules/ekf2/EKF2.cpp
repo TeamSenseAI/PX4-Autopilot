@@ -1664,7 +1664,12 @@ void EKF2::PublishStatus(const hrt_abstime &timestamp)
 	status.mag_device_id = _device_id_mag;
 
 	status.timestamp = _replay_mode ? timestamp : hrt_absolute_time();
-	_estimator_status_pub.publish(status);
+	// Publish on an alias in all other modes
+	if(_param_sys_mc_est_group.get() != 2){
+		_ekf_status_pub.publish(status);
+	} else {
+		_estimator_status_pub.publish(status);
+	}
 }
 
 void EKF2::PublishStatusFlags(const hrt_abstime &timestamp)
