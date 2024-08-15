@@ -204,7 +204,7 @@ EKF2::EKF2(bool multi_mode, const px4::wq_config_t &config, bool replay_mode):
 	_estimator_sensor_bias_pub.advertise();
 	_estimator_states_pub.advertise();
 	_estimator_status_flags_pub.advertise();
-	_estimator_status_pub.advertise();
+	// _estimator_status_pub.advertise();
 }
 
 EKF2::~EKF2()
@@ -245,7 +245,7 @@ bool EKF2::multi_init(int imu, int mag)
 	_estimator_sensor_bias_pub.advertise();
 	_estimator_states_pub.advertise();
 	_estimator_status_flags_pub.advertise();
-	_estimator_status_pub.advertise();
+	// _estimator_status_pub.advertise();
 	_yaw_est_pub.advertise();
 
 	// baro advertise
