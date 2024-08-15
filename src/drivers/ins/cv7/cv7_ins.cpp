@@ -316,8 +316,9 @@ void CvIns::cb_filter_timestamp(void *user, const mip_field *field, timestamp_ty
 #if 1
 		// Estimator Status
 		// TODO: for now we only fullfill components needed by the commander
-		estimator_status_s status;
+		estimator_status_s status{0};
 		status.timestamp = t;
+		status.timestamp_sample = t;
 		// Note: These flags require insight into the inner operations of the filter.
 		//       Below is a minimal mapping of error flags from CV7 to the PX4 health flags
 		// Filter State Mapping, if the filter is in 4, set merging GPS and Height being fused flags
