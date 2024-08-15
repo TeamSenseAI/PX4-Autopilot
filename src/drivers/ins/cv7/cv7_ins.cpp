@@ -346,6 +346,10 @@ void CvIns::cb_filter_timestamp(void *user, const mip_field *field, timestamp_ty
 		status.pre_flt_fail_innov_vel_vert = false;
 		status.pre_flt_fail_innov_height = false;
 		status.pre_flt_fail_mag_field_disturbed = false;
+		status.accel_device_id = ref->_config.device_id;
+		status.gyro_device_id = ref->_config.device_id;
+		status.mag_device_id = ref->_config.device_id;
+		status.baro_device_id = ref->_config.device_id;
 		ref->_estimator_status_pub.publish(status);
 
 		sensor_selection_s sensor_selection{};
