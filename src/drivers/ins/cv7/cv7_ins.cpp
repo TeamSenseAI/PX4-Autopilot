@@ -573,6 +573,9 @@ CvIns::~CvIns()
 		device_uart.uart_close();
 	}
 
+	_sensor_baro_pub.unadvertise();
+	//delete &_sensor_baro_pub;
+	
 #ifdef LOG_TRANSACTIONS
 	_logger.thread_stop();
 #endif
@@ -1169,7 +1172,7 @@ int CvIns::task_spawn(int argc, char *argv[])
 	int myoptind = 1;
 	const char *myoptarg = nullptr;
 
-	const char *dev = "/dev/ttyS2";
+	const char *dev = "/dev/ttyS3";
 	int32_t rot = ROTATION_NONE;
 
 	while ((ch = px4_getopt(argc, argv, "d:r:", &myoptind, &myoptarg)) != EOF) {

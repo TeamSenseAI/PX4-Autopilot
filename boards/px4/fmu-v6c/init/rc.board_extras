@@ -1,0 +1,15 @@
+#!/bin/sh
+#
+# Runs later in the startup sequence
+#------------------------------------------------------------------------------
+
+# External INS
+# Override ekf2 and est group (which if not 1,2,3 will be set to 2)
+# Then start cv7 and finally start ekf2 with the expected estimation group
+ekf2 stop
+param set SYS_MC_EST_GROUP 4
+cv7_ins start
+#-r 0 -d /dev/ttyS3 
+ekf2 start
+
+echo "finished with board extras"
