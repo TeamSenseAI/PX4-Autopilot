@@ -564,7 +564,12 @@ CvIns::CvIns(const char *uart_port, int32_t rot) :
 	ModuleParams(nullptr),
 	ScheduledWorkItem(MODULE_NAME, px4::wq_configurations::test1)
 {
-	_uart_device = uart_port;
+	/* store port name */
+	memset(_port,'\0', 20);
+	int max_len = math::min((unsigned int)20,strlen(uart_port));
+	strncpy(_port, uart_port, max_len);
+	/* enforce null termination */
+	_port[19] = '\0';
 	_config.rot = static_cast<Rotation>(rot);
 
 	// // Clamp rate to allowable ranges
@@ -600,6 +605,17 @@ CvIns::~CvIns()
 	_logger.thread_stop();
 #endif
 	PX4_INFO("Destructor");
+	_sensor_baro_pub.unadvertise();
+	_sensor_selection_pub.unadvertise();
+	_vehicle_local_position_pub.unadvertise();
+	_vehicle_angular_velocity_pub.unadvertise();
+	_vehicle_attitude_pub.unadvertise();
+	_global_position_pub.unadvertise();
+	_vehicle_odometry_pub.unadvertise();
+	_debug_array_pub.unadvertise();
+	_estimator_status_pub.unadvertise();
+
+
 	perf_free(_loop_perf);
 	perf_free(_loop_interval_perf);
 }
@@ -647,7 +663,7 @@ int CvIns::connect_at_baud(int32_t baud)
 			PX4_INFO(" - Failed to set UART %" PRIu32 " baud", baud);
 		}
 
-	} else if (device_uart.uart_open(_uart_device, baud) == PX4_ERROR) {
+	} else if (device_uart.uart_open(_port, baud) == PX4_ERROR) {
 		PX4_INFO(" - Failed to open UART");
 		PX4_ERR("ERROR: Could not open device port!");
 		return PX4_ERROR;
@@ -1222,7 +1238,7 @@ int CvIns::task_spawn(int argc, char *argv[])
 
 		return PX4_ERROR;
 	}
-
+	PX4_INFO("Opening device port %s",dev);
 	CvIns *instance = new CvIns(dev, rot);
 
 	if (instance) {
@@ -1250,7 +1266,7 @@ int CvIns::task_spawn(int argc, char *argv[])
 int CvIns::print_status()
 {
 	PX4_INFO_RAW("Serial Port Open %d Handle %d Device %s\n", device_uart.is_open(), device_uart.uart_get_fd(),
-		     _uart_device);
+		     _port);
 	PX4_INFO_RAW("TX Bytes %lu\n", _debug_tx_bytes);
 	PX4_INFO_RAW("Min %lu\n", _debug_rx_bytes[0]);
 	PX4_INFO_RAW("Total %lu\n", _debug_rx_bytes[1]);

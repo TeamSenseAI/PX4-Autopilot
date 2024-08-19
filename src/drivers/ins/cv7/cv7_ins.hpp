@@ -241,10 +241,11 @@ private:
 	mip_dispatch_handler sensor_data_handlers[10];
 	mip_dispatch_handler filter_data_handlers[13];
 
-	const char *_uart_device;
 	int64_t _cv7_offset_time{0};
 
 	hrt_abstime _last_imu_time{0};
+
+	char _port[20];
 
 	// Parameters
 	DEFINE_PARAMETERS(
