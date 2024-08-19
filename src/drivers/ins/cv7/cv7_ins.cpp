@@ -175,6 +175,7 @@ void CvIns::cb_filter_timestamp(void *user, const mip_field *field, timestamp_ty
 		// ref->_f_timestamp.update_sample(data);
 
 		auto t = hrt_absolute_time() - (ref->_delay_offset * 1_us);
+		float yaw = NAN;
 
 		if (ref->_f_llh.updated) {
 			vehicle_global_position_s gp{0};
@@ -191,6 +192,24 @@ void CvIns::cb_filter_timestamp(void *user, const mip_field *field, timestamp_ty
 			ref->_global_position_pub.publish(gp);
 		}
 
+
+		if (ref->_f_quat.updated) {
+			vehicle_attitude_s att_data{0};
+			att_data.timestamp = t;
+			att_data.timestamp_sample = t;
+			att_data.q[0] = ref->_f_quat.sample.q[0];
+			att_data.q[1] = ref->_f_quat.sample.q[1];
+			att_data.q[2] = ref->_f_quat.sample.q[2];
+			att_data.q[3] = ref->_f_quat.sample.q[3];
+			att_data.quat_reset_counter = 0;
+
+			ref->_f_quat.updated = false;
+			ref->_vehicle_attitude_pub.publish(att_data);
+
+			// convert to YAW
+			matrix::Eulerf euler_attitude(matrix::Quatf(att_data.q));
+			yaw = math::degrees(euler_attitude.psi());
+		}
 
 		if (ref->_f_rel_pos.updated && ref->_f_vel_ned.updated) {
 			vehicle_local_position_s vp{0};
@@ -267,7 +286,9 @@ void CvIns::cb_filter_timestamp(void *user, const mip_field *field, timestamp_ty
 			vp.z_deriv = vp.vz;
 			vp.z_global = true;
 			vp.xy_global = true;
-			vp.heading_good_for_control = true;
+			// Set heading as valid if we have any yaw
+			vp.heading_good_for_control = (yaw != NAN);
+			vp.heading = yaw; // This is extracted from vehicle attitude
 
 			vp.vxy_max = INFINITY;
 			vp.vz_max = INFINITY;
@@ -277,20 +298,6 @@ void CvIns::cb_filter_timestamp(void *user, const mip_field *field, timestamp_ty
 			ref->_f_rel_pos.updated = false;
 			ref->_f_vel_ned.updated = false;
 			ref->_vehicle_local_position_pub.publish(vp);
-		}
-
-		if (ref->_f_quat.updated) {
-			vehicle_attitude_s att_data{0};
-			att_data.timestamp = t;
-			att_data.timestamp_sample = t;
-			att_data.q[0] = ref->_f_quat.sample.q[0];
-			att_data.q[1] = ref->_f_quat.sample.q[1];
-			att_data.q[2] = ref->_f_quat.sample.q[2];
-			att_data.q[3] = ref->_f_quat.sample.q[3];
-			att_data.quat_reset_counter = 0;
-
-			ref->_f_quat.updated = false;
-			ref->_vehicle_attitude_pub.publish(att_data);
 		}
 
 		if (ref->_f_ang_rate.updated) {
@@ -588,7 +595,7 @@ CvIns::~CvIns()
 
 	_sensor_baro_pub.unadvertise();
 	//delete &_sensor_baro_pub;
-	
+
 #ifdef LOG_TRANSACTIONS
 	_logger.thread_stop();
 #endif
