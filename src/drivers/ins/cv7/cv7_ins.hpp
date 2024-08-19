@@ -111,6 +111,7 @@ public:
 	static void cb_filter_pos_uncertainty(void *user, const mip_field *field, timestamp_type timestamp);
 	static void cb_filter_vel_uncertainty(void *user, const mip_field *field, timestamp_type timestamp);
 	static void cb_filter_atte_uncertainty(void *user, const mip_field *field, timestamp_type timestamp);
+	static void cb_filter_comp_accel(void *user, const mip_field *field, timestamp_type timestamp);
 	static void cb_filter_timestamp(void *user, const mip_field *field, timestamp_type timestamp);
 
 	// Common Callback/s
@@ -196,6 +197,7 @@ private:
 	ext_sample<mip_filter_position_llh_uncertainty_data> _f_pos_uncertainty{0};
 	ext_sample<mip_filter_velocity_ned_uncertainty_data> _f_vel_uncertainty{0};
 	ext_sample<mip_filter_euler_angles_uncertainty_data> _f_atte_uncertainty{0};
+	ext_sample<mip_filter_comp_accel_data> _f_comp_accel{0};
 	ext_sample<mip_filter_timestamp_data> _f_timestamp{0};
 
 	// Sensor types needed for message creation / updating / publishing
@@ -237,7 +239,7 @@ private:
 
 	// Handlers
 	mip_dispatch_handler sensor_data_handlers[10];
-	mip_dispatch_handler filter_data_handlers[12];
+	mip_dispatch_handler filter_data_handlers[13];
 
 	const char *_uart_device;
 	int64_t _cv7_offset_time{0};
