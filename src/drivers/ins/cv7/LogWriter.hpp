@@ -15,7 +15,7 @@
 
 
 #define BUFFER_SIZE 1024
-#define MAX_WRITE_CHUNK 79
+#define MAX_WRITE_CHUNK 1024
 #define ULOG_LOGGING
 
 using namespace time_literals;
@@ -97,14 +97,15 @@ private:
 	/// @brief Pend on the semaphore (but wake every second to check if thread should exit)
 	void wait_for_data()
 	{
+		bool loop = true;
 		do{
 			unsigned int lim = MAX_WRITE_CHUNK;
-			// Relax limit if no data published recently
-			if(hrt_elapsed_time(&_last_rx_pub) > 10_ms){
-				lim = 0;
+			// Attempt to write infrequently
+			if(hrt_elapsed_time(&_last_rx_pub) > 25_ms){
+				return;
 			}
 
-			// If there is data available to write, don't pend on new data
+			// Exit when a full assignment of data is available to write
 			if (_tx_buf.numElements() > lim || _rx_buf.numElements() > lim) {
 				return;
 			}
@@ -117,7 +118,7 @@ private:
 				usleep(500_us);
 			}
 
-		} while(true);
+		} while(loop);
 	}
 
 	void thread_run()
@@ -158,7 +159,7 @@ private:
 					len++;
 				}
 				dta.len = len;
-				_gps_dump_pub.publish(dta);
+				// _gps_dump_pub.publish(dta);
 				#else
 				for (int i = 0; i < s; i++) {
 					_tx_buf.pull(buffer[i]);

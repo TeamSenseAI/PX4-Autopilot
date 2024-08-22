@@ -8,7 +8,5 @@
 # Then start cv7 and finally start ekf2 with the expected estimation group
 ekf2 stop
 param set SYS_MC_EST_GROUP 4
-cv7_ins start
 ekf2 start
-
 echo "finished with board extras"
