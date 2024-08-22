@@ -70,7 +70,7 @@ void LoggedTopics::add_default_topics()
 	add_optional_topic("flaps_setpoint", 1000);
 	add_topic("gimbal_manager_set_attitude", 500);
 	add_optional_topic("generator_status");
-	add_optional_topic("gps_dump");
+	add_topic("gps_dump");
 	add_optional_topic("gimbal_controls", 200);
 	add_optional_topic("gripper");
 	add_optional_topic("heater_status");

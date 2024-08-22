@@ -15,7 +15,7 @@
 
 
 #define BUFFER_SIZE 1024
-#define MAX_WRITE_CHUNK 1024
+#define MAX_WRITE_CHUNK 490
 #define ULOG_LOGGING
 
 using namespace time_literals;
@@ -125,6 +125,7 @@ private:
 	{
 		printf("Entering Log Writer Thread\n");
 
+#if 0
 		if (make_directory_structure() != PX4_OK) {
 			printf("Couldn't create the folder structure, exiting with %d\n", get_errno());
 			return;
@@ -136,7 +137,7 @@ private:
 			printf("Couldn't open a write descriptor, exiting with %d", get_errno());
 			return;
 		}
-
+#endif
 		do {
 			wait_for_data();
 #if 1
